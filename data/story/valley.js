@@ -41,7 +41,7 @@ export const VALLEY = [
     level: 'l02',
     if: { owns: ['beaver'] },
     lines: [
-      { who: 'beaver', text: 'Too wide to wade. Give me this bit of the brook and I will give you a way across.', point: { kind: 'tile', at: [6, 3] } },
+      { who: 'beaver', text: 'Too wide to wade. Give me this bit of the brook and I will give you a way across.', point: { kind: 'tile', at: [7, 2] } },
       { who: 'hedgehog', text: 'And watch the far bank. Something is moving over there.' },
     ],
   },

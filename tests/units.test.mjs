@@ -129,7 +129,7 @@ test('base actions match the brief', () => {
   }
   assert.deepEqual(BAND_TYPES.badger.actions.map((a) => a.id), ['dig', 'bite']);
   assert.deepEqual(action('badger', 'dig'), {
-    id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
+    id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, fromTail: true,
   });
   assert.deepEqual(action('badger', 'bite'), {
     id: 'bite', label: 'Bite', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0,

@@ -9,9 +9,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FakeEl, installFakeDom } from './fake-dom.mjs';
-import { mountBattle, selectionView } from '../js/ui/battle-view.js';
+import { mountBattle, selectionView, tapAction } from '../js/ui/battle-view.js';
 import { createBattle, applyMove, parseGrid } from '../js/engine/battle.js';
-import { reachable } from '../js/engine/band.js';
+import { occupantAt, reachable } from '../js/engine/band.js';
 import { actionTargets } from '../js/engine/actions.js';
 import { actionsFor } from '../js/engine/units.js';
 import { LEVELS } from '../data/levels/index.js';
@@ -166,6 +166,28 @@ function checkBoard(svg, /** @type {BattleState} */ s, ctx) {
 }
 
 /**
+ * A tile no band stands on where a tap does nothing for `bandId`, with no
+ * action chosen or any of its actions chosen: tapping it lets go of the band.
+ * @returns {[number, number]|null}
+ */
+function neutralTile(/** @type {BattleState} */ s, /** @type {string} */ bandId) {
+  const b = s.bands.find((x) => x.id === bandId);
+  if (b === undefined) return null;
+  const views = [null, ...actionsFor(b.type, b.maxLen).map((a) => a.id)]
+    .map((a) => selectionView(s, bandId, a))
+    .filter((v) => v !== null);
+  for (let y = 0; y < s.height; y += 1) {
+    for (let x = 0; x < s.width; x += 1) {
+      /** @type {[number, number]} */
+      const p = [x, y];
+      if (occupantAt(s, p) !== undefined) continue;
+      if (views.every((v) => tapAction(v, p) === null)) return p;
+    }
+  }
+  return null;
+}
+
+/**
  * Performs one move through the screen, as a player would.
  * @returns {boolean} false when the screen did not take it
  */
@@ -176,10 +198,20 @@ function playMove(ui, /** @type {BattleState} */ s, /** @type {Move} */ move) {
     return true;
   }
   const band = s.bands.find((b) => b.id === move.band);
-  // Select the band afresh: tap empty ground first, then its head.
+  // Select the band afresh: tap empty ground first, then its head. The
+  // head may be a tile the band selected now would act on (the aimed tile
+  // of a sting stings a friend), so the ground is a tile where no move or
+  // action of that band would happen, whichever action it has chosen.
   const head = band.cells[0];
   const selectedNow = ui.svg.find('data-selected');
-  if (selectedNow === undefined || selectedNow.parent.parent.attrs['data-band'] !== band.id) ui.tap(head[0], head[1]);
+  const selectedId = selectedNow === undefined ? null : selectedNow.parent.parent.attrs['data-band'];
+  if (selectedId !== band.id) {
+    if (selectedId !== null) {
+      const ground = neutralTile(s, selectedId);
+      if (ground !== null) ui.tap(ground[0], ground[1]);
+    }
+    ui.tap(head[0], head[1]);
+  }
   if (move.kind === 'move') {
     const end = move.path[move.path.length - 1];
     // A chosen action hides the move tiles: let go of it first.

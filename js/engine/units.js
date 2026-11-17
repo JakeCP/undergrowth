@@ -81,7 +81,8 @@ export const BAND_TYPES = {
     startLen: 3,
     maxLenCap: 6,
     actions: [
-      { id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
+      // From its tail end as well as its head: it can shut the door it has just come through.
+      { id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, fromTail: true },
       { id: 'bite', label: 'Bite', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
     ],
     tiers: [{ minLen: 1, name: 'Badger', grants: [] }],

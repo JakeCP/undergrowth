@@ -19,6 +19,39 @@ export function findAction(band, actionId) {
 }
 
 /**
+ * The cells an action may be made from: the head, and for a `fromTail`
+ * action the band's last cell too.
+ * @param {Band} band
+ * @param {ActionDef} action
+ * @returns {Pos[]}
+ */
+export function actionOrigins(band, action) {
+  const head = band.cells[0];
+  const tail = band.cells[band.cells.length - 1];
+  if (action.fromTail === true && band.cells.length > 1) return [head, tail];
+  return [head];
+}
+
+/**
+ * The cell of the band an action on `target` is made from: the head if it
+ * can reach `target` from there, otherwise the tail.
+ * @param {Band} band
+ * @param {ActionDef} action
+ * @param {Pos} target
+ * @returns {Pos}
+ */
+function originFor(band, action, target) {
+  const origins = actionOrigins(band, action);
+  const inLine = (/** @type {Pos} */ o) => {
+    const dx = Math.abs(target[0] - o[0]);
+    const dy = Math.abs(target[1] - o[1]);
+    const dist = dx + dy;
+    return (dx === 0 || dy === 0) && dist >= action.minRange && dist <= action.maxRange;
+  };
+  return origins.find(inLine) ?? origins[0];
+}
+
+/**
  * @param {BattleState} state
  * @param {string} bandId
  * @param {string} actionId
@@ -31,8 +64,25 @@ export function actionTargets(state, bandId, actionId) {
   if (band === undefined || band.cells.length === 0) return result;
   const action = findAction(band, actionId);
   if (action === undefined) return result;
-  const head = band.cells[0];
+  for (const origin of actionOrigins(band, action)) {
+    for (const pos of targetsFrom(state, band, action, origin)) {
+      if (!result.some((p) => eq(p, pos))) result.push(pos);
+    }
+  }
+  return result;
+}
 
+/**
+ * The targets of `action` made from the band cell `head`.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {ActionDef} action
+ * @param {Pos} head
+ * @returns {Pos[]}
+ */
+function targetsFrom(state, band, action, head) {
+  /** @type {Pos[]} */
+  const result = [];
   for (const dir of DIR_ORDER) {
     const d = DIRS[dir];
     for (let dist = action.minRange; dist <= action.maxRange; dist += 1) {
@@ -101,11 +151,12 @@ function applyTransform(state, at, transform, cause) {
  */
 export function resolveAction(state, band, action, target) {
   if (band.cells.length === 0) return;
+  const from = originFor(band, action, target);
   state.events.push({
     kind: 'action',
     actor: band.id,
     actionId: action.id,
-    from: [band.cells[0][0], band.cells[0][1]],
+    from: [from[0], from[1]],
     target: [target[0], target[1]],
   });
 

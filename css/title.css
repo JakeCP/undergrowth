@@ -4,135 +4,241 @@
    FOREST_SHADE #2c5a30, FOREST_FLOOR #4c8440, DEN_GLOW #f3c766,
    CREAM #f4efe6, INK #1d2618.
 
-   Phone first: the screen fills the viewport, the name sits in the
-   upper third where the scene is calmest, and the buttons sit at
-   the bottom within one thumb's reach, each at least 44px tall.
+   The scene is one painting taken apart (js/ui/title-scene.js): the
+   valley behind, the dark forest archway in front with the cast
+   standing in it, ferns nearest of all. We are down in the undergrowth
+   looking out.
 
-   The painting and the cast hold still: a slow drift of the whole
-   scene read as the screen creeping. Animation is transform and
-   opacity only: a gentle sway of the foliage, rising motes, the title
-   fading up, and a soft pulse on the main button. Under
-   prefers-reduced-motion — and on a screen the view marks .is-still —
-   everything is still. */
+   The valley and the archway each sit in a box of the painting's own
+   shape, the smallest that covers the screen, bottoms together
+   (coverBox in title-scene.js is the same rule, and the tests hold the
+   two to each other). The cast are children of the archway's box,
+   placed in percentages of it, so they keep their feet on the painted
+   root at every window shape.
 
-/* The foliage and the cast hang past the bottom edge. `clip`, not just
-   `hidden`: a hidden overflow can still be scrolled, and focusing Begin
-   on load scrolled the screen up, lifting the scene off the bottom. */
+   Phone first: the name sits on the dark canopy at the top, the buttons
+   at the bottom within one thumb's reach, each at least 44px tall.
+
+   Nothing moves the view. The paintings and the cast hold still; what
+   moves is in the scene: mist, light, the machines' lamps, the ferns,
+   motes, a leaf. Animation is transform and opacity only. Under
+   prefers-reduced-motion, and on a screen the view marks .is-still,
+   everything is still and shown as it ends up. */
+
+/* `clip`, not just `hidden`: a hidden overflow can still be scrolled,
+   and focusing Begin on load scrolled the screen up, lifting the scene
+   off the bottom. The screen is a size container, so everything can be
+   sized from its width and height (cqw, cqh). --px and --py are where
+   the pointer is, -1 to 1 from the centre (title-view.js). */
 .title-screen {
   position: fixed;
   inset: 0;
   overflow: hidden;
   overflow: clip;
+  container-type: size;
   background: #0c1d12;
   color: var(--cream);
   font-family: 'EB Garamond', Georgia, serif;
+  --px: 0;
+  --py: 0;
 }
 
 .title-layer {
-  position: absolute;
-  inset: 0;
   pointer-events: none;
 }
 
-.title-layer img {
+/* The painting's shape (width over height), how much of a sideways
+   overhang is cropped off the left, and how much of an upward one off
+   the bottom: ARCH_RATIO, FOCUS_X and FOCUS_Y in title-scene.js. */
+.title-screen [data-shape='wide'] {
+  --ratio: 1.5;
+  --focus-x: 0.2;
+  --focus-y: 0.25;
+}
+
+.title-screen [data-shape='tall'] {
+  --ratio: 0.66667;
+  --focus-x: 0.5;
+  --focus-y: 0;
+}
+
+.title-valley,
+.title-arch {
+  position: absolute;
+  --box-w: max(100cqw, calc(100cqh * var(--ratio)));
+  --box-h: calc(var(--box-w) / var(--ratio));
+  width: var(--box-w);
+  aspect-ratio: var(--ratio);
+  bottom: calc((100cqh - var(--box-h)) * var(--focus-y));
+  left: calc((100cqw - var(--box-w)) * var(--focus-x));
+}
+
+.title-valley-img,
+.title-arch-img {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-/* The scene fills the screen, cropped to cover. */
-.title-scene img {
-  object-fit: cover;
+/* The valley comes up out of the dark as the screen opens, and slides a
+   little against the archway under the pointer: it is far away. It is
+   painted past the opening on every side, so the slide shows no edge. */
+.title-valley-img {
+  translate: calc(var(--px) * -5px) calc(var(--py) * -3px);
+  transition: translate 0.5s ease-out;
+  animation: title-fade-in 0.9s ease-out both;
 }
 
-/* No scene file: a code-drawn gradient in the game's palette, deep
-   frame-green at the top down to forest floor, with a warm den-glow
-   low on the horizon. */
-.title-scene--gradient {
+/* No valley painting: a code-drawn gradient in the game's palette fills
+   the screen, deep frame-green at the top down to forest floor, with a
+   warm den-glow low on the horizon. */
+.title-valley--gradient {
+  position: absolute;
+  inset: 0;
   background:
     radial-gradient(ellipse 90% 45% at 50% 78%, rgba(243, 199, 102, 0.28), transparent 70%),
     linear-gradient(180deg, #0c1d12 0%, #16301f 38%, #2c5a30 72%, #4c8440 100%);
 }
 
-/* The title screen is a size container, so the cast can be placed in
-   units of the screen's height (cqh), the same way the foliage clump
-   is sized. */
-.title-screen {
-  container-type: size;
-}
-
-/* The cast stand in the bottom-left corner, just behind the foliage
-   clump, looking out at the cleared field. Their feet are below the
-   screen's edge: feet planted on the painted grass never quite sit in
-   it, so the pair are framed from the shins up, as if standing in the
-   undergrowth just in front of us. They are placed on the SCREEN, not
-   on a spot in the painting: the painting is cropped to cover, so a
-   spot in it slides about (or right off the edge) as the window's
-   shape changes, while the clump stays put. Sizes are in the screen's
-   height, like the clump's; on a wide screen the pair stay left of
-   Begin. A little less colour seats them in the painted light. */
-.title-cast {
-  inset: auto;
-  left: 8cqh;
-  bottom: -2.5cqh;
-  height: 25cqh;
-  aspect-ratio: 3 / 2;
-  isolation: isolate;
-}
-
-/* On a tall screen there is no room beside Begin: the pair stand
-   larger, across the bottom of the screen, with the button in front
-   of them and their heads and cloaks above it. */
-@media (orientation: portrait) {
-  .title-cast {
-    left: -3cqw;
-    bottom: -2.5cqh;
-    height: min(31cqh, 66cqw);
-  }
-}
-
-.title-cast::before {
-  content: '';
+/* A machine's lamp: a small warm light that blinks. */
+.title-lamp {
   position: absolute;
-  z-index: -1;
-  left: 6%;
-  right: 4%;
-  bottom: -5%;
-  height: 13%;
-  background: radial-gradient(ellipse at 50% 50%, rgba(22, 34, 16, 0.5), rgba(22, 34, 16, 0.22) 45%, transparent 72%);
+  width: 0.9cqh;
+  height: 0.9cqh;
+  margin: -0.45cqh 0 0 -0.45cqh;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6d6 0%, rgba(255, 214, 120, 0.85) 45%, rgba(255, 190, 90, 0) 75%);
+  transform: scale(2.4);
+  animation: title-lamp-blink 2.6s ease-in-out infinite;
 }
 
-.title-cast img {
-  object-fit: contain;
-  object-position: 50% 100%;
-  filter: saturate(0.8) sepia(0.16) brightness(0.97);
+.title-lamp + .title-lamp {
+  animation-delay: -1.1s;
+  animation-duration: 3.4s;
 }
 
-/* The foliage is a clump in the bottom-left corner, nearest the eye
-   and in front of the cast's feet. It is sized by the screen's height,
-   never stretched to the width, and sways very gently from its roots. */
-.title-foreground {
-  top: auto;
-  right: auto;
-  left: -4%;
+/* Mist lying over the cut ground, between the valley and the wood: two
+   wide soft bands sliding past each other. The layer is the valley's
+   box, so the bands lie on its ground. */
+.title-mist {
+  position: absolute;
+  --box-w: max(100cqw, calc(100cqh * var(--ratio)));
+  --box-h: calc(var(--box-w) / var(--ratio));
+  width: var(--box-w);
+  aspect-ratio: var(--ratio);
+  bottom: calc((100cqh - var(--box-h)) * var(--focus-y));
+  left: calc((100cqw - var(--box-w)) * var(--focus-x));
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.title-mist-band {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  height: 9%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 238, 214, 0.5), rgba(255, 238, 214, 0.18) 45%, transparent 72%);
+  opacity: 0.8;
+  animation: title-mist-drift 52s ease-in-out infinite alternate;
+}
+
+.title-mist-band--1 {
+  top: 55%;
+}
+
+.title-mist-band--2 {
+  top: 60%;
+  height: 7%;
+  animation-duration: 74s;
+  animation-direction: alternate-reverse;
+}
+
+/* The archway settles as the screen opens, as if we had just pushed
+   through the leaves. Once. */
+.title-arch {
+  transform-origin: 50% 62%;
+  animation: title-settle 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Light slanting in through the opening: three soft strips over the
+   painted ones, breathing. */
+.title-shafts {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+
+.title-shaft {
+  position: absolute;
+  width: 7%;
+  height: 52%;
+  border-radius: 40%;
+  background: linear-gradient(180deg, rgba(255, 224, 150, 0) 0%, rgba(255, 224, 150, 0.3) 28%, rgba(255, 224, 150, 0) 100%);
+  transform: rotate(38deg);
+  transform-origin: 50% 0%;
+  opacity: 0.5;
+  animation: title-shaft-breathe 9s ease-in-out infinite alternate;
+}
+
+.title-arch[data-shape='wide'] .title-shaft--1 { left: 33%; top: 20%; }
+.title-arch[data-shape='wide'] .title-shaft--2 { left: 38%; top: 24%; width: 4%; animation-duration: 7s; animation-delay: -3s; }
+.title-arch[data-shape='wide'] .title-shaft--3 { left: 28%; top: 17%; width: 5%; animation-duration: 11s; animation-delay: -6s; }
+.title-arch[data-shape='tall'] .title-shaft--1 { left: 40%; top: 30%; width: 11%; height: 36%; }
+.title-arch[data-shape='tall'] .title-shaft--2 { left: 48%; top: 33%; width: 7%; height: 34%; animation-duration: 7s; animation-delay: -3s; }
+.title-arch[data-shape='tall'] .title-shaft--3 { left: 32%; top: 28%; width: 8%; height: 36%; animation-duration: 11s; animation-delay: -6s; }
+
+/* The cast stand in the archway's box, each at its spot
+   (CAST_SPOTS in title-scene.js sets where and how wide, inline).
+   They hold still. */
+.title-cast {
+  position: absolute;
+  display: block;
+  height: auto;
+}
+
+/* The ferns are nearest the eye: a clump in each bottom corner, sized
+   by the screen's height, swaying from their roots and shifting most
+   under the pointer. */
+.title-ferns {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  translate: calc(var(--px) * 12px) calc(var(--py) * 5px);
+  transition: translate 0.5s ease-out;
+  transform-origin: 50% 100%;
+  animation: title-settle-near 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.title-fern {
+  position: absolute;
+  display: block;
   bottom: -4%;
-  height: 62%;
-  aspect-ratio: 853 / 1280;
+  height: 46%;
+  width: auto;
 }
 
-@media (orientation: portrait) {
-  .title-foreground {
-    height: 48%;
+.title-fern--left {
+  left: -4%;
+  transform-origin: 15% 100%;
+  animation: title-fern-sway 9s ease-in-out infinite alternate;
+}
+
+.title-fern--right {
+  right: -4%;
+  transform-origin: 85% 100%;
+  animation: title-fern-sway 11s ease-in-out -4s infinite alternate-reverse;
+}
+
+@container (max-aspect-ratio: 1/1) {
+  .title-fern {
+    height: 30%;
   }
 }
 
-.title-foreground img {
-  object-fit: contain;
-  object-position: 0% 100%;
-  transform-origin: 20% 100%;
-  animation: title-foliage-sway 9s ease-in-out infinite alternate;
-}
-
+/* Motes: a few specks of warm light rising through the dark, and one
+   leaf coming down now and then. */
 .title-motes {
   position: absolute;
   inset: 0;
@@ -144,23 +250,46 @@
   bottom: -4vh;
   border-radius: 50%;
   background: #f3c766;
+  box-shadow: 0 0 6px 1px rgba(243, 199, 102, 0.6);
   animation: title-mote-rise 16s linear infinite;
 }
 
+.title-leaf {
+  position: absolute;
+  top: -6vh;
+  left: 62%;
+  width: 14px;
+  height: 9px;
+  border-radius: 80% 10% 80% 10%;
+  background: linear-gradient(135deg, #b9c24a, #6f8f2e);
+  opacity: 0;
+  animation: title-leaf-fall 14s ease-in 4s infinite;
+}
+
+/* The name sits on the dark canopy at the top. */
 .title-heading {
   position: absolute;
   left: 0;
   right: 0;
-  top: 15%;
-  padding: 0 20px;
+  top: 5%;
+  padding: 0 16px;
   text-align: center;
   pointer-events: none;
-  animation: title-fade-up 1.2s ease-out both;
+  translate: calc(var(--px) * 6px) calc(var(--py) * 3px);
+  transition: translate 0.5s ease-out;
+  animation: title-grow-in 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.8s both;
 }
 
-/* The name is set in deep forest ink on the pale morning sky, with a
-   soft light halo so it also holds over leaves at the screen's edge.
-   A short rule under it finishes the block. */
+/* On a narrow screen the sound toggle is in the top corner: the name
+   starts below it. */
+@container (max-width: 1000px) {
+  .title-heading {
+    top: max(5cqh, 60px);
+  }
+}
+
+/* Typed, when there is no wordmark: warm cream on the dark leaves, with
+   a soft dark halo so it also holds over the bright opening. */
 .title-name {
   display: inline-block;
   margin: 0;
@@ -168,20 +297,43 @@
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.035em;
-  color: #1c3a22;
+  color: #f6e7c1;
   text-shadow:
-    0 0 28px rgba(255, 244, 222, 0.95),
-    0 0 10px rgba(255, 244, 222, 0.75),
-    0 1px 0 rgba(255, 250, 236, 0.55);
+    0 0 26px rgba(8, 20, 12, 0.95),
+    0 0 8px rgba(8, 20, 12, 0.8),
+    0 2px 0 rgba(8, 20, 12, 0.6);
 }
 
-.title-name::after {
-  content: '';
+/* Painted, when there is: the wordmark is drawn and the typed name is
+   clipped away, still there for a screen reader. */
+.title-name.has-wordmark {
   display: block;
-  width: 38%;
+}
+
+.title-name.has-wordmark .title-name-text {
+  position: absolute;
+  width: 1px;
   height: 1px;
-  margin: 0.2em auto 0;
-  background: linear-gradient(90deg, transparent, rgba(28, 58, 34, 0.6) 20%, rgba(28, 58, 34, 0.6) 80%, transparent);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.title-wordmark {
+  display: block;
+  margin: 0 auto;
+  width: min(86cqw, 92cqh);
+  max-width: 900px;
+  height: auto;
+  filter: drop-shadow(0 6px 10px rgba(4, 12, 7, 0.55));
+}
+
+/* On a very wide, short screen the name is kept smaller, clear of the
+   heads below it. */
+@container (min-aspect-ratio: 2/1) {
+  .title-wordmark {
+    width: min(60cqh, 900px);
+  }
 }
 
 .title-controls {
@@ -196,15 +348,17 @@
 }
 
 /* Begin (or Continue) is the kit's main button (css/ui.css), set large
-   and in capitals, fading up and then breathing gently; the sound
-   toggle is a small plain one in the top corner. */
+   and in capitals. It is there almost at once, so nobody waits for the
+   opening, and then breathes gently; the sound toggle is a small plain
+   one in the top corner. */
 .title-start {
   min-width: 210px;
+  min-height: 48px;
   font-size: 20px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   animation:
-    title-fade-up 0.9s ease-out 0.3s both,
+    title-fade-up 0.6s ease-out 0.2s both,
     title-button-pulse 2.8s ease-in-out 1.4s infinite;
 }
 
@@ -226,20 +380,57 @@
   margin-right: 2px;
 }
 
-@media (orientation: portrait) {
-  .title-heading {
-    top: 17%;
-  }
+@keyframes title-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes title-foliage-sway {
-  from { transform: rotate(-0.35deg); }
-  to { transform: rotate(0.35deg); }
+@keyframes title-settle {
+  from { transform: scale(1.07); }
+  to { transform: scale(1); }
+}
+
+@keyframes title-settle-near {
+  from { transform: scale(1.16); }
+  to { transform: scale(1); }
+}
+
+@keyframes title-grow-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes title-lamp-blink {
+  0%, 100% { opacity: 1; transform: scale(2.4); }
+  50% { opacity: 0.35; transform: scale(1.7); }
+}
+
+@keyframes title-mist-drift {
+  from { transform: translateX(-9%); }
+  to { transform: translateX(9%); }
+}
+
+@keyframes title-shaft-breathe {
+  from { opacity: 0.25; }
+  to { opacity: 0.8; }
+}
+
+@keyframes title-fern-sway {
+  from { transform: rotate(-0.6deg); }
+  to { transform: rotate(0.6deg); }
 }
 
 @keyframes title-mote-rise {
   from { transform: translateY(0); }
   to { transform: translateY(-88vh); }
+}
+
+@keyframes title-leaf-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  6% { opacity: 0.9; }
+  30% { transform: translate(-7vw, 34vh) rotate(160deg); }
+  55% { opacity: 0.9; transform: translate(-2vw, 66vh) rotate(300deg); }
+  70%, 100% { opacity: 0; transform: translate(-9vw, 112vh) rotate(460deg); }
 }
 
 @keyframes title-fade-up {
@@ -252,22 +443,20 @@
   50% { transform: scale(1.035); }
 }
 
-.title-screen.is-still .title-cast,
-.title-screen.is-still .title-layer img,
-.title-screen.is-still .title-mote,
-.title-screen.is-still .title-heading,
-.title-screen.is-still .title-controls,
-.title-screen.is-still .title-start {
-  animation: none;
+/* Still: no animation and no slide under the pointer, and everything
+   shown as it ends up. */
+.title-screen.is-still *,
+.title-screen.is-still *::before,
+.title-screen.is-still *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .title-screen .title-cast,
-  .title-screen .title-layer img,
-  .title-screen .title-mote,
-  .title-screen .title-heading,
-  .title-screen .title-controls,
-  .title-screen .title-start {
-    animation: none;
+  .title-screen *,
+  .title-screen *::before,
+  .title-screen *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

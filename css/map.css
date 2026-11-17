@@ -138,6 +138,13 @@
   padding: 12px 26px 16px;
 }
 
+/* While a story scene is open its own wood box stands over this one; the
+   panel is a little taller, so its rim would show above the box. It stays
+   in the layout, so the map does not move under the scene. */
+body:has(> .scene) .map-screen .map-panel {
+  visibility: hidden;
+}
+
 .map-screen .map-hint {
   color: #e3d98a;
 }

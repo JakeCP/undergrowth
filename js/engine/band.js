@@ -68,14 +68,43 @@ export function canPass(state, band, p) {
 }
 
 /**
+ * Whether the band grows a segment as its leader steps onto `p`: wounds
+ * mend only in the wood. An animal band grows only when its leader steps
+ * onto forest, except while it is still `fresh` (on its first march out of
+ * camp, before it has first been whole or been hit), when it grows on any
+ * tile. Bots are not affected.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos} p
+ * @returns {boolean}
+ */
+export function mendsOn(state, band, p) {
+  if (band.side !== 'us' || band.fresh === true) return true;
+  if (!inBounds(state, p)) return false;
+  return state.tiles[p[1]][p[0]].kind === 'forest';
+}
+
+/**
+ * For each step of `path`, whether the band grows on it (see `mendsOn`).
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos[]} path
+ * @returns {boolean[]}
+ */
+export function growthAlong(state, band, path) {
+  return path.map((p) => mendsOn(state, band, p));
+}
+
+/**
  * The band's cells after its leader walks `path`.
+ * @param {BattleState} state
  * @param {Band} band
  * @param {Pos[]} path
  * @returns {Pos[]}
  */
-export function cellsAfter(band, path) {
+export function cellsAfter(state, band, path) {
   let cells = band.cells;
-  for (const p of path) cells = stepBand({ ...band, cells, plan: null }, p).cells;
+  for (const p of path) cells = stepBand({ ...band, cells, plan: null }, p, mendsOn(state, band, p)).cells;
   return cells;
 }
 
@@ -89,7 +118,7 @@ export function cellsAfter(band, path) {
  * @returns {boolean}
  */
 export function landsClear(state, band, path) {
-  return cellsAfter(band, path).every((cell) => {
+  return cellsAfter(state, band, path).every((cell) => {
     const occupant = occupantAt(state, cell);
     return occupant === undefined || occupant.id === band.id;
   });
@@ -132,11 +161,16 @@ export function copyPlan(plan) {
 }
 
 /**
+ * The band after its leader steps onto `p`: the head takes the tile and
+ * the body falls in behind it. With `grows` (the default) the old tail
+ * stays, so a short band gains a segment, up to `maxLen`; without it the
+ * band keeps the length it has.
  * @param {Band} band
  * @param {Pos} p
+ * @param {boolean} [grows]
  * @returns {Band}
  */
-export function stepBand(band, p) {
+export function stepBand(band, p, grows = true) {
   /** @type {Pos} */
   const head = [p[0], p[1]];
   const body = band.cells
@@ -144,7 +178,7 @@ export function stepBand(band, p) {
     .map((c) => /** @type {Pos} */ ([c[0], c[1]]));
   return {
     ...band,
-    cells: [head, ...body].slice(0, band.maxLen),
+    cells: [head, ...body].slice(0, grows ? band.maxLen : band.cells.length),
     plan: copyPlan(band.plan),
   };
 }
@@ -246,6 +280,8 @@ export function damageBand(state, bandId, amount) {
     if (idx >= 0) state.bands.splice(idx, 1);
   } else {
     band.cells = band.cells.slice(0, band.cells.length - amount);
+    // A hit ends the first march: from now on it mends only in the wood.
+    band.fresh = false;
   }
   state.events.push({ kind: 'damage', band: bandId, amount, wiped, cells });
 }

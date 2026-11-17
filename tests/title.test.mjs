@@ -4,20 +4,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FakeEl, installFakeDom } from './fake-dom.mjs';
-import {
-  GAME_TITLE, startLabel, pickScene, titleLayers, moteSpecs, renderTitle,
-} from '../js/ui/title-view.js';
+import { GAME_TITLE, startLabel, moteSpecs, renderTitle } from '../js/ui/title-view.js';
+import { ASSET_KEYS, CAST_SPOTS, LAMP_SPOTS } from '../js/ui/title-scene.js';
 
 installFakeDom({ canvas: true });
 
-const NONE = { bg: null, bgWide: null, cast: null, foreground: null, theme: null };
-const ALL = {
-  bg: 'assets/title/title-bg.webp',
-  bgWide: 'assets/title/title-bg-wide.webp',
-  cast: 'assets/title/title-cast.webp',
-  foreground: 'assets/title/title-foreground.webp',
-  theme: 'assets/title/title-theme.mp3',
-};
+/** @type {Record<string, string|null>} */
+const NONE = Object.fromEntries(ASSET_KEYS.map((k) => [k, null]));
+/** @type {Record<string, string|null>} */
+const ALL = Object.fromEntries(ASSET_KEYS.map((k) => [k, `assets/title/${k}.webp`]));
 
 /** @param {FakeEl} root @param {string} cls */
 const byClass = (root, cls) => root.all().filter(
@@ -55,49 +50,7 @@ test('the main button reads "Begin" without a save and "Continue" with one', () 
   assert.equal(byClass(mount({ hasSave: true }).root, 'title-start')[0].textContent, 'Continue');
 });
 
-// --- which scene, which layers (pure) ---
-
-test('pickScene: portrait takes the tall scene, wide takes the 16:9 scene', () => {
-  assert.equal(pickScene(ALL, false), ALL.bg);
-  assert.equal(pickScene(ALL, true), ALL.bgWide);
-});
-
-test('pickScene: a wide screen falls back to the tall scene cropped to cover', () => {
-  assert.equal(pickScene({ ...ALL, bgWide: null }, true), ALL.bg);
-  assert.equal(pickScene({ ...ALL, bg: null }, false), ALL.bgWide);
-  assert.equal(pickScene(NONE, false), null);
-  assert.equal(pickScene(NONE, true), null);
-});
-
-test('titleLayers: with every asset, scene, cast, foliage, motes, title, controls', () => {
-  const layers = titleLayers(ALL, { wide: false, reducedMotion: false });
-  assert.deepEqual(layers.map((l) => l.id), ['scene', 'cast', 'foreground', 'motes', 'title', 'controls']);
-  assert.equal(layers[0].src, ALL.bg);
-  assert.equal(layers[1].src, ALL.cast);
-  assert.equal(layers[2].src, ALL.foreground);
-  assert.ok(layers.every((l) => l.animated), 'everything drifts or fades');
-});
-
-test('titleLayers: missing cut-outs are simply not drawn', () => {
-  const ids = (assets) => titleLayers(assets, { wide: false, reducedMotion: false }).map((l) => l.id);
-  assert.deepEqual(ids({ ...ALL, cast: null }), ['scene', 'foreground', 'motes', 'title', 'controls']);
-  assert.deepEqual(ids({ ...ALL, foreground: null }), ['scene', 'cast', 'motes', 'title', 'controls']);
-  assert.deepEqual(ids({ ...ALL, cast: null, foreground: null }), ['scene', 'motes', 'title', 'controls']);
-});
-
-test('titleLayers: with no assets at all the scene is the code-drawn gradient', () => {
-  const layers = titleLayers(NONE, { wide: true, reducedMotion: false });
-  assert.deepEqual(layers.map((l) => l.id), ['scene', 'motes', 'title', 'controls']);
-  assert.equal(layers[0].src, null, 'no image: css/title.css paints the palette gradient');
-});
-
-test('titleLayers: reduced motion yields no animation on any layer', () => {
-  for (const assets of [NONE, ALL]) {
-    const layers = titleLayers(assets, { wide: false, reducedMotion: true });
-    assert.ok(layers.length > 0);
-    assert.ok(layers.every((l) => l.animated === false));
-  }
-});
+// --- the motes (pure; the layers are in tests/title-scene.test.mjs) ---
 
 test('moteSpecs: a few slow motes, the same every time', () => {
   const motes = moteSpecs();
@@ -120,18 +73,92 @@ test('renderTitle: title text, layers back to front, buttons last', () => {
   const layers = screen.all().filter((n) => n.getAttribute('data-layer') !== null);
   assert.deepEqual(
     layers.map((n) => n.getAttribute('data-layer')),
-    ['scene', 'cast', 'foreground', 'motes', 'title', 'controls'],
+    ['valley', 'mist', 'arch', 'ferns', 'motes', 'title', 'controls'],
   );
   assert.equal(byClass(root, 'title-name')[0].text, GAME_TITLE);
   const imgs = screen.all().filter((n) => n.tag === 'img');
-  assert.deepEqual(imgs.map((n) => n.getAttribute('src')), [ALL.bg, ALL.cast, ALL.foreground]);
+  assert.deepEqual(
+    imgs.map((n) => n.getAttribute('src')),
+    [ALL.valleyCutTall, ALL.archTall, ALL.heroes, ALL.fernLeft, ALL.fernRight, ALL.wordmark],
+  );
+  assert.ok(imgs.every((n) => n.getAttribute('alt') === ''), 'the paintings are decoration');
   assert.ok(byClass(root, 'title-mote').length >= 5, 'motes drawn in code');
+});
+
+test('renderTitle: the valley and the archway say which shape of painting they hold', () => {
+  const tall = mount({ assets: ALL, wide: false });
+  assert.equal(byClass(tall.root, 'title-valley')[0].getAttribute('data-shape'), 'tall');
+  assert.equal(byClass(tall.root, 'title-arch')[0].getAttribute('data-shape'), 'tall');
+  const wide = mount({ assets: { ...ALL, valleyCutWide: null }, wide: true });
+  assert.equal(byClass(wide.root, 'title-valley')[0].getAttribute('data-shape'), 'tall', 'the fallback painting');
+  assert.equal(byClass(wide.root, 'title-arch')[0].getAttribute('data-shape'), 'wide');
+});
+
+test('renderTitle: the mist lies in the box of the valley drawn', () => {
+  const { root } = mount({ assets: { ...ALL, valleyCutWide: null }, wide: true });
+  assert.equal(byClass(root, 'title-mist')[0].getAttribute('data-shape'), 'tall');
+});
+
+test('renderTitle: one leaf falls through the motes', () => {
+  const { root } = mount({ assets: ALL });
+  const motes = root.all().find((n) => n.getAttribute('data-layer') === 'motes');
+  assert.equal(motes.all().filter((n) => n.className === 'title-leaf').length, 1);
+});
+
+test('renderTitle: the cast stand inside the archway, at their spots in its box', () => {
+  const { root } = mount({ assets: ALL, wide: true, state: { valley: 'cut', company: ['ants'] } });
+  const arch = byClass(root, 'title-arch')[0];
+  const cast = arch.all().filter((n) => n.getAttribute('data-cast') !== null);
+  assert.deepEqual(cast.map((n) => n.getAttribute('data-cast')), ['heroes', 'ants']);
+  const spot = CAST_SPOTS.wide.heroes;
+  assert.equal(cast[0].style.left, `${spot.left}%`);
+  assert.equal(cast[0].style.bottom, `${spot.bottom}%`);
+  assert.equal(cast[0].style.width, `${spot.width}%`);
+  assert.equal(cast[0].getAttribute('src'), ALL.heroes);
+});
+
+test('renderTitle: a new game shows the pair alone and two lamps in the valley', () => {
+  const { root } = mount({ assets: ALL, wide: true });
+  const cast = root.all().filter((n) => n.getAttribute('data-cast') !== null);
+  assert.deepEqual(cast.map((n) => n.getAttribute('data-cast')), ['heroes']);
+  const valley = byClass(root, 'title-valley')[0];
+  const lamps = valley.all().filter((n) => n.className === 'title-lamp');
+  assert.equal(lamps.length, 2);
+  assert.equal(lamps[0].style.left, `${LAMP_SPOTS.wide.cut[0].left}%`);
+  assert.equal(lamps[0].style.top, `${LAMP_SPOTS.wide.cut[0].top}%`);
+});
+
+test('renderTitle: the painted wordmark stands in for the typed name, which stays for screen readers', () => {
+  const { root } = mount({ assets: ALL });
+  const name = byClass(root, 'title-name')[0];
+  assert.equal(name.tag, 'h1');
+  assert.equal(name.text, GAME_TITLE, 'the name is still text');
+  assert.ok(name.classList.contains('has-wordmark'));
+  const mark = byClass(root, 'title-wordmark')[0];
+  assert.equal(mark.getAttribute('src'), ALL.wordmark);
+  assert.equal(mark.getAttribute('alt'), '');
+});
+
+test('renderTitle: a wordmark that fails to load gives way to the typed name', () => {
+  const { root } = mount({ assets: ALL });
+  byClass(root, 'title-wordmark')[0].dispatch('error');
+  const name = byClass(root, 'title-name')[0];
+  assert.ok(!name.classList.contains('has-wordmark'));
+  assert.equal(byClass(root, 'title-wordmark').length, 0);
+  assert.equal(name.text, GAME_TITLE);
+});
+
+test('renderTitle: a wordmark lettered with another name is not drawn', () => {
+  const { root } = mount({ assets: ALL, wordmarkName: 'Overgrowth' });
+  assert.equal(byClass(root, 'title-wordmark').length, 0);
+  assert.ok(!byClass(root, 'title-name')[0].classList.contains('has-wordmark'));
+  assert.equal(byClass(root, 'title-name')[0].text, GAME_TITLE);
 });
 
 test('renderTitle: with no assets there are no images, but title and buttons remain', () => {
   const { root } = mount({ assets: NONE });
   assert.equal(root.all().filter((n) => n.tag === 'img').length, 0);
-  assert.ok(byClass(root, 'title-scene--gradient').length === 1, 'the gradient stands in');
+  assert.ok(byClass(root, 'title-valley--gradient').length === 1, 'the gradient stands in');
   assert.equal(byClass(root, 'title-name')[0].text, GAME_TITLE);
   assert.equal(byClass(root, 'title-start')[0].textContent, 'Begin');
   assert.ok(byClass(root, 'title-sound')[0], 'the sound toggle');
@@ -231,4 +258,44 @@ test('renderTitle: reduced motion marks the screen still', () => {
   assert.ok(screen.classList.contains('is-still'), 'css/title.css stills every animation');
   const animated = screen.all().filter((n) => n.getAttribute('data-animated') === 'true');
   assert.deepEqual(animated, [], 'no layer is animated');
+});
+
+// --- depth under the pointer ---
+
+/**
+ * Mounts with a browser that answers media queries as given.
+ * @param {import('node:test').TestContext} t
+ * @param {boolean} finePointer
+ * @param {Record<string, unknown>} [opts]
+ */
+function mountWithPointer(t, finePointer, opts = {}) {
+  const g = /** @type {any} */ (globalThis);
+  const before = g.matchMedia;
+  g.matchMedia = (/** @type {string} */ q) => ({ matches: q.includes('pointer: fine') ? finePointer : false });
+  t.after(() => { g.matchMedia = before; });
+  const ui = mount({ assets: ALL, ...opts });
+  const screen = byClass(ui.root, 'title-screen')[0];
+  screen.getBoundingClientRect = () => ({ left: 100, top: 50, width: 800, height: 600 });
+  return screen;
+}
+
+test('renderTitle: a mouse shifts the layers: the centre is 0, the edges are 1 and -1', (t) => {
+  const screen = mountWithPointer(t, true);
+  screen.dispatch('pointermove', { clientX: 500, clientY: 350 });
+  assert.equal(screen.style['--px'], '0');
+  assert.equal(screen.style['--py'], '0');
+  screen.dispatch('pointermove', { clientX: 900, clientY: 50 });
+  assert.equal(screen.style['--px'], '1');
+  assert.equal(screen.style['--py'], '-1');
+  screen.dispatch('pointermove', { clientX: 2000, clientY: 350 });
+  assert.equal(screen.style['--px'], '1', 'never past the edge');
+});
+
+test('renderTitle: a touch screen, or reduced motion, shifts nothing', (t) => {
+  const touch = mountWithPointer(t, false);
+  touch.dispatch('pointermove', { clientX: 900, clientY: 50 });
+  assert.equal(touch.style['--px'], undefined);
+  const still = mountWithPointer(t, true, { reducedMotion: true });
+  still.dispatch('pointermove', { clientX: 900, clientY: 50 });
+  assert.equal(still.style['--px'], undefined);
 });

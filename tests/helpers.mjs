@@ -3,7 +3,7 @@
 /** @typedef {import('../js/engine/types.js').Plan} Plan */
 /** @typedef {import('../js/engine/types.js').Band} Band */
 /** @typedef {import('../js/engine/types.js').BattleState} BattleState */
-/** @typedef {{id: string, type: string, cells: Pos[], side?: Side, maxLen?: number, moved?: boolean, acted?: boolean, trapped?: boolean, plan?: Plan|null}} BandInput */
+/** @typedef {{id: string, type: string, cells: Pos[], side?: Side, maxLen?: number, moved?: boolean, acted?: boolean, trapped?: boolean, plan?: Plan|null, fresh?: boolean}} BandInput */
 
 import { parseGrid } from '../js/engine/battle.js';
 import { BAND_TYPES } from '../js/engine/units.js';
@@ -42,10 +42,13 @@ export function makeState(grid, bands, extra = {}) {
     }
   }
   /** @type {Band[]} */
+  // An animal band is `fresh` unless the test says otherwise: it grows on
+  // any tile until it is whole or hit, as a band out of camp does.
   const stateBands = bands.map((b) => ({
     id: b.id,
     type: b.type,
     side: b.side ?? BAND_TYPES[b.type].side,
+    fresh: b.fresh ?? (b.side ?? BAND_TYPES[b.type].side) === 'us',
     cells: b.cells.map((c) => /** @type {Pos} */ ([c[0], c[1]])),
     maxLen: b.maxLen ?? b.cells.length,
     moved: b.moved ?? false,

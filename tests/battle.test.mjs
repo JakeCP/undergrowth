@@ -404,9 +404,11 @@ test('plans are re-made after every player move and after the bots\' turn, and u
 });
 
 test('no free kiting: a band that drags its tail inside a bot\'s reach is struck every turn', () => {
-  let s = makeState(['..........'], [
-    { id: 'ants', type: 'ants', cells: [[3, 0], [2, 0], [1, 0]], maxLen: 6 },
-    { id: 'harvester-0', type: 'harvester', cells: [[0, 0]] },
+  // Through the wood, where a hit band regrows as it marches (in the open
+  // it would stay short, and its tail would not trail back into reach).
+  let s = makeState(['TTTTTTTTTT', '..........'], [
+    { id: 'ants', type: 'ants', cells: [[3, 0], [2, 0], [1, 0]], maxLen: 6, fresh: false },
+    { id: 'harvester-0', type: 'harvester', cells: [[0, 1]] },
   ]);
   const marches = [[[4, 0]], [[5, 0], [6, 0]], [[7, 0], [8, 0], [9, 0]]];
   const struck = [];
@@ -421,7 +423,7 @@ test('no free kiting: a band that drags its tail inside a bot\'s reach is struck
   }
   // The harvester followed the tail: stand still, one step, then two.
   assert.deepEqual(struck, [[1, 0], [2, 0], [4, 0]]);
-  assert.deepEqual(bandById(s, 'harvester-0').cells, [[3, 0]]);
+  assert.deepEqual(bandById(s, 'harvester-0').cells, [[4, 1]]);
 });
 
 test('no free kiting: a band cannot turn a bot back and forth by stepping into the lane it is coming down', () => {

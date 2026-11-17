@@ -14,6 +14,7 @@ import { renderResult } from './ui/result-view.js';
 import { silhouettes } from './ui/silhouettes.js';
 import { createSound } from './ui/sound.js';
 import { renderTitle } from './ui/title-view.js';
+import { titleState } from './ui/title-state.js';
 import { createMusic, trackFor } from './ui/music.js';
 import { BAND_TYPES } from './engine/units.js';
 import { runScenes } from './story/run.js';
@@ -135,6 +136,8 @@ function levelById(id) {
 function showTitle() {
   music.play(trackFor('title'));
   renderTitle(app, {
+    // Who has joined and how the valley is mending, from the save.
+    state: titleState(progress, LEVELS),
     hasSave: Object.values(progress.cleared).some((v) => v === true) || progress.seeds > 0,
     soundOn: progress.soundOn === true,
     onSound: (next) => {

@@ -5,11 +5,14 @@
 //
 //   node scripts/title-assets.mjs
 //
-// Sources (all optional; the screen works with none of them):
-//   title-bg.png          tall scene        -> title-bg.webp
-//   title-bg-wide.png     16:9 scene        -> title-bg-wide.webp
-//   title-cast.png        transparent cast  -> title-cast.webp
-//   title-foreground.png  foliage frame     -> title-foreground.webp
+// Sources (all optional; the screen works with none of them), each
+// title-<name>.png -> title-<name>.webp (js/ui/title-scene.js says what
+// each is for):
+//   title-valley-<cut|mending|regrown>-<wide|tall>.png   the valley, opaque
+//   title-arch-<wide|tall>.png      the forest archway, see-through opening
+//   title-cast-<heroes|ants|bees|beaver|badger|owl|bear>.png   cut-outs
+//   title-fern-<left|right>.png     the nearest foliage, cut-outs
+//   title-wordmark.png              the painted name, a cut-out
 //   title-theme.mp3 (or title-theme-source.*) -> title-theme.mp3
 //
 // Scenes are shrunk to 1280 px or less on the long side; cut-outs
@@ -24,10 +27,13 @@
 // expects. This is not part of the deploy: there is still no build
 // step.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { pngSize, webpSize, targetSize, findConverter, bumpVersion } from './textures.mjs';
+import { decodePng, encodePng, visibleBox, trim } from './png.mjs';
+import { ASSET_KEYS } from '../js/ui/title-scene.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -36,7 +42,7 @@ export const LIST_FILE = 'js/ui/title-assets.js';
 /** The longer side of a shipped title image, in pixels, at most. */
 export const MAX_LONG_SIDE = 1280;
 /** All title images together, at most, in bytes. */
-export const IMAGE_BUDGET_BYTES = 1024 * 1024;
+export const IMAGE_BUDGET_BYTES = 2 * 1024 * 1024;
 /** The shipped music file, at most, in bytes. */
 export const MUSIC_BUDGET_BYTES = Math.floor(1.2 * 1024 * 1024);
 export const FFMPEG = '/opt/homebrew/bin/ffmpeg';
@@ -44,16 +50,84 @@ export const FFPROBE = '/opt/homebrew/bin/ffprobe';
 const QUALITY = 80;
 
 /**
- * The title artwork, in list-file order. `alpha` marks the cut-outs,
- * whose transparency the conversion must keep.
- * @type {readonly {key: string, png: string, webp: string, alpha: boolean}[]}
+ * The name lettered in title-wordmark.png. The game draws the wordmark
+ * only while this is its name (GAME_TITLE in js/ui/title-view.js): after
+ * a rename, repaint the wordmark (docs/art/title-prompts.md) and change
+ * this.
  */
-export const IMAGES = Object.freeze([
-  { key: 'bg', png: 'title-bg.png', webp: 'title-bg.webp', alpha: false },
-  { key: 'bgWide', png: 'title-bg-wide.png', webp: 'title-bg-wide.webp', alpha: false },
-  { key: 'cast', png: 'title-cast.png', webp: 'title-cast.webp', alpha: true },
-  { key: 'foreground', png: 'title-foreground.png', webp: 'title-foreground.webp', alpha: true },
-]);
+export const WORDMARK_NAME = 'Undergrowth';
+
+/**
+ * @param {string} key an asset key (js/ui/title-scene.js, ASSET_KEYS)
+ * @returns {string} its file name without the extension
+ */
+function fileStem(key) {
+  const words = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+  const cast = ['heroes', 'ants', 'bees', 'beaver', 'badger', 'owl', 'bear'];
+  return cast.includes(key) ? `title-cast-${key}` : `title-${words}`;
+}
+
+/**
+ * The longer side an image ships at, at most. The paintings and the
+ * wordmark fill the screen's width; the pair are a third of it; each
+ * companion and fern is a small figure in the scene.
+ * @param {string} key
+ * @returns {number}
+ */
+function maxSideFor(key) {
+  if (key.startsWith('valley') || key.startsWith('arch') || key === 'wordmark') return MAX_LONG_SIDE;
+  return key === 'heroes' ? 640 : 448;
+}
+
+/**
+ * The title artwork, in list-file order: every asset key but the
+ * music. `alpha` marks the cut-outs, whose transparency the conversion
+ * must keep; only the valleys are opaque. `trim` marks the cut-outs that
+ * are cropped to their paint: the cast, the ferns and the wordmark. The
+ * archways keep their whole canvas, for the cast are placed in it.
+ * `maxSide` is the longer side it ships at, at most: no larger than it
+ * is ever shown.
+ * @type {readonly {key: string, png: string, webp: string, alpha: boolean, trim: boolean, maxSide: number}[]}
+ */
+export const IMAGES = Object.freeze(ASSET_KEYS.filter((key) => key !== 'theme').map((key) => ({
+  key,
+  png: `${fileStem(key)}.png`,
+  webp: `${fileStem(key)}.webp`,
+  alpha: !key.startsWith('valley'),
+  trim: !key.startsWith('valley') && !key.startsWith('arch'),
+  maxSide: maxSideFor(key),
+})));
+
+/** Paint fainter than this (alpha, of 255) is the image tool's residue. */
+const FAINT = 24;
+
+/**
+ * A cut-out cropped to its paint. The image tool leaves a faint haze
+ * over the empty area; anything fainter than FAINT is cleared first.
+ * `box` says where the paint was in the source, in percent of it: that
+ * is how a figure cut from the key painting is put back where it stood
+ * (CAST_SPOTS in js/ui/title-scene.js).
+ * @param {import('./png.mjs').Rgba} source
+ * @returns {{img: import('./png.mjs').Rgba, box: {left: number, top: number, width: number, height: number}}}
+ */
+export function trimCutout(source) {
+  const data = new Uint8ClampedArray(source.data);
+  for (let p = 3; p < data.length; p += 4) {
+    if (data[p] < FAINT) data.fill(0, p - 3, p + 1);
+  }
+  const cleared = { width: source.width, height: source.height, data };
+  const found = visibleBox(cleared) ?? { x: 0, y: 0, width: source.width, height: source.height };
+  const pct = (/** @type {number} */ v, /** @type {number} */ of) => Math.round((v / of) * 10000) / 100;
+  return {
+    img: trim(cleared),
+    box: {
+      left: pct(found.x, source.width),
+      top: pct(found.y, source.height),
+      width: pct(found.width, source.width),
+      height: pct(found.height, source.height),
+    },
+  };
+}
 
 /** Source-audio names the theme may arrive as, best first. */
 export const THEME_SOURCES = Object.freeze([
@@ -62,10 +136,7 @@ export const THEME_SOURCES = Object.freeze([
 ]);
 export const THEME_FILE = 'title-theme.mp3';
 
-/**
- * @typedef {{bg: string|null, bgWide: string|null, cast: string|null,
- *   foreground: string|null, theme: string|null}} TitleAssets
- */
+/** @typedef {import('../js/ui/title-scene.js').TitleAssets} TitleAssets */
 
 /**
  * The source of js/ui/title-assets.js for this set of assets.
@@ -78,14 +149,13 @@ export function titleAssetsSource(assets) {
     '// Generated by scripts/title-assets.mjs: the title artwork that exists',
     '// as shipped files under assets/title/. Do not edit by hand; run',
     '// `node scripts/title-assets.mjs` after adding or removing a file.',
-    '/** @type {Readonly<import(\'./title-view.js\').TitleAssets>} */',
+    '/** @type {Readonly<import(\'./title-scene.js\').TitleAssets>} */',
     'export const TITLE_ASSETS = Object.freeze({',
-    `  bg: ${entry(assets.bg)},`,
-    `  bgWide: ${entry(assets.bgWide)},`,
-    `  cast: ${entry(assets.cast)},`,
-    `  foreground: ${entry(assets.foreground)},`,
-    `  theme: ${entry(assets.theme)},`,
+    ...ASSET_KEYS.map((key) => `  ${key}: ${entry(assets[key])},`),
     '});',
+    '',
+    '/** The name lettered in the wordmark image. */',
+    `export const WORDMARK_NAME = '${WORDMARK_NAME}';`,
     '',
   ].join('\n');
 }
@@ -136,10 +206,11 @@ function stale(src, dest) {
  * @param {string} dest
  * @param {{width: number, height: number}} from the source's size
  * @param {boolean} alpha keep transparency (the cut-outs)
+ * @param {number} maxSide the longer side to ship at, at most
  * @returns {string|null} what went wrong, or null
  */
-function convertImage(converter, src, dest, from, alpha) {
-  const to = targetSize(from.width, from.height, MAX_LONG_SIDE);
+function convertImage(converter, src, dest, from, alpha, maxSide) {
+  const to = targetSize(from.width, from.height, maxSide);
   /** @type {string[]} */
   let args;
   if (converter === 'cwebp') {
@@ -150,7 +221,7 @@ function convertImage(converter, src, dest, from, alpha) {
     }
     args.push(src, '-o', dest);
   } else {
-    args = ['-s', 'format', 'webp', '-s', 'formatOptions', String(QUALITY), '-Z', String(MAX_LONG_SIDE), src, '--out', dest];
+    args = ['-s', 'format', 'webp', '-s', 'formatOptions', String(QUALITY), '-Z', String(maxSide), src, '--out', dest];
   }
   const done = spawnSync(converter, args, { encoding: 'utf8' });
   if (done.error !== undefined) return done.error.message;
@@ -218,6 +289,8 @@ function convertTheme(src, dest) {
  * @property {number} musicBytes
  * @property {boolean} changed a shipped file changed: bump APP_VERSION
  *   and refresh the precache hash
+ * @property {Record<string, {left: number, top: number, width: number, height: number}>} boxes
+ *   where each cut-out trimmed in this run sat in its source, in percent
  */
 
 /**
@@ -239,6 +312,9 @@ export function run(options = {}) {
   /** @type {string[]} */
   const errors = [];
   let changed = false;
+  /** Where each trimmed cut-out converted in this run sat in its source, in percent.
+   * @type {Record<string, {left: number, top: number, width: number, height: number}>} */
+  const boxes = {};
 
   // Images: convert each PNG source that is new or changed.
   for (const image of IMAGES) {
@@ -259,7 +335,21 @@ export function run(options = {}) {
       continue;
     }
     const before = fs.existsSync(dest) ? fs.readFileSync(dest) : null;
-    const problem = convertImage(converter, src, dest, size, image.alpha);
+    let from = src;
+    let fromSize = size;
+    /** @type {string|null} */
+    let scratch = null;
+    if (image.trim) {
+      // Crop to the paint first, through a scratch PNG that cwebp reads.
+      const cut = trimCutout(decodePng(fs.readFileSync(src)));
+      scratch = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'title-')), image.png);
+      fs.writeFileSync(scratch, encodePng(cut.img));
+      from = scratch;
+      fromSize = { width: cut.img.width, height: cut.img.height };
+      boxes[image.key] = cut.box;
+    }
+    const problem = convertImage(converter, from, dest, fromSize, image.alpha, image.maxSide);
+    if (scratch !== null) fs.rmSync(path.dirname(scratch), { recursive: true, force: true });
     if (problem !== null) {
       errors.push(`${TITLE_DIR}/${image.png} could not be converted with ${converter}: ${problem}`);
       continue;
@@ -297,7 +387,7 @@ export function run(options = {}) {
 
   // What exists now.
   /** @type {TitleAssets} */
-  const assets = { bg: null, bgWide: null, cast: null, foreground: null, theme: null };
+  const assets = /** @type {TitleAssets} */ (Object.fromEntries(ASSET_KEYS.map((key) => [key, null])));
   /** @type {Record<string, {width: number, height: number, bytes: number}>} */
   const files = {};
   let imageBytes = 0;
@@ -306,7 +396,7 @@ export function run(options = {}) {
     if (!fs.existsSync(file)) continue;
     const data = fs.readFileSync(file);
     const size = webpSize(data);
-    const key = /** @type {'bg'|'bgWide'|'cast'|'foreground'} */ (image.key);
+    const key = /** @type {keyof TitleAssets} */ (image.key);
     assets[key] = `${TITLE_DIR}/${image.webp}`;
     files[image.webp] = { width: size?.width ?? 0, height: size?.height ?? 0, bytes: data.length };
     imageBytes += data.length;
@@ -318,7 +408,7 @@ export function run(options = {}) {
   }
   if (imageBytes > IMAGE_BUDGET_BYTES) {
     warnings.push(`The title images add up to ${kb(imageBytes)}, over the ${kb(IMAGE_BUDGET_BYTES)} budget`);
-    errors.push('Title images are over the 1 MB budget: use smaller or simpler images');
+    errors.push('Title images are over the 2 MB budget: use smaller or simpler images');
   }
   let musicBytes = 0;
   if (fs.existsSync(themeDest)) {
@@ -345,6 +435,7 @@ export function run(options = {}) {
     imageBytes,
     musicBytes,
     changed,
+    boxes,
   };
 }
 
@@ -379,6 +470,9 @@ export function formatReport(result) {
     lines.push(`  ${THEME_FILE.padEnd(24)} ok                    ${kb(theme.bytes).padStart(9)}  ${how}`);
   } else {
     lines.push(`  ${THEME_FILE.padEnd(24)} -         optional, not present`);
+  }
+  for (const [key, box] of Object.entries(result.boxes)) {
+    lines.push(`  ${key} was cut from left ${box.left}%, top ${box.top}%, ${box.width}% wide, ${box.height}% high of its source`);
   }
   lines.push(`Images: ${kb(result.imageBytes)} of the ${kb(IMAGE_BUDGET_BYTES)} budget. Music: ${kb(result.musicBytes)} of the ${kb(MUSIC_BUDGET_BYTES)} budget.`);
   for (const warning of result.warnings) lines.push(`Warning: ${warning}`);

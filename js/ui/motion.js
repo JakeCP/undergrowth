@@ -271,7 +271,7 @@ export function motionTracks(steps, before, options = {}) {
     switch (step.kind) {
       case 'glide': {
         if (sim === undefined || sim.tokens.length === 0) break;
-        const frames = glideFrames(sim.tokens.map((t) => t.at), sim.maxLen, step.path);
+        const frames = glideFrames(sim.tokens.map((t) => t.at), sim.maxLen, step.path, step.grow);
         const n = step.path.length;
         const end = frames[n];
         /** @type {SimToken[]} */

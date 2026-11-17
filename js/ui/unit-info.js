@@ -129,8 +129,10 @@ export function actionSentence(action) {
   const where = whereText(action);
   const damage = `${action.damage} damage`;
   switch (action.effect) {
-    case 'dig':
-      return `Digs open ground, stubble or forest ${where} into a hole, or breaks a dam there. Only fliers cross a hole.`;
+    case 'dig': {
+      const from = action.fromTail === true ? `${where === 'next to it' ? 'next to its head or its tail end' : where}` : where;
+      return `Digs open ground, stubble or forest ${from} into a hole, or breaks a dam there. Only fliers cross a hole.`;
+    }
     case 'build':
       return `Builds a dam on water or a hole ${where}, so bands can walk across.`;
     case 'mow':

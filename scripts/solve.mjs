@@ -128,7 +128,7 @@ function stateKey(s) {
     for (const tile of row) k += tile.kind === 'dam' && tile.under === 'hole' ? '+' : KIND_CHAR[tile.kind];
   }
   for (const b of s.bands) {
-    k += `|${b.id}${b.trapped ? '!' : ''}`;
+    k += `|${b.id}${b.trapped ? '!' : ''}${b.fresh ? '+' : ''}`;
     for (const c of b.cells) k += `${c[0]},${c[1]};`;
   }
   k += '|';

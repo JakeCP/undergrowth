@@ -58,7 +58,7 @@ test('action sentences for every animal action', () => {
     s('ants', 'ram'),
     'Pushes an enemy next to it 1 tile away, with no damage. Pushed into water or a hole, a bot is gone.',
   );
-  assert.equal(s('badger', 'dig'), 'Digs open ground, stubble or forest next to it into a hole, or breaks a dam there. Only fliers cross a hole.');
+  assert.equal(s('badger', 'dig'), 'Digs open ground, stubble or forest next to its head or its tail end into a hole, or breaks a dam there. Only fliers cross a hole.');
   assert.equal(s('beaver', 'build'), 'Builds a dam on water or a hole next to it, so bands can walk across.');
   assert.equal(s('bear', 'maul'), 'Deals 3 damage to an enemy next to it.');
   assert.equal(

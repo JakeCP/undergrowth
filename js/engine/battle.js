@@ -12,7 +12,7 @@
 import { LEGEND, isHabitat } from './terrain.js';
 import { eq, key, manhattan } from './grid.js';
 import { BAND_TYPES } from './units.js';
-import { bandById, canPass, landsClear, stepBand } from './band.js';
+import { bandById, canPass, landsClear, stepBand, growthAlong } from './band.js';
 import { findAction, actionTargets, resolveAction } from './actions.js';
 import { runBotPhase, replan } from './bots.js';
 
@@ -150,6 +150,7 @@ export function createBattle(level, deployments, progress) {
       acted: false,
       trapped: false,
       plan: null,
+      fresh: progress.bands[deployment.type].maxLen > 1,
     });
   }
   for (const placement of level.trapped) {
@@ -163,6 +164,7 @@ export function createBattle(level, deployments, progress) {
       acted: false,
       trapped: true,
       plan: null,
+      fresh: false,
     });
   }
   level.bots.forEach((placement, index) => {
@@ -255,10 +257,15 @@ function applyBandMove(state, bandId, path) {
     throw new Error(`band "${bandId}" cannot stop at ${end[0]},${end[1]}: another band is in the way`);
   }
 
-  state.events.push({ kind: 'move', band: bandId, path: path.map(copyPos) });
+  // Where it may grow, on the event only when some step holds it back.
+  const grow = growthAlong(state, band, path);
+  state.events.push(grow.every(Boolean)
+    ? { kind: 'move', band: bandId, path: path.map(copyPos) }
+    : { kind: 'move', band: bandId, path: path.map(copyPos), grow });
 
-  for (const step of path) {
-    band.cells = stepBand(band, step).cells;
+  for (let i = 0; i < path.length; i += 1) {
+    const step = path[i];
+    band.cells = stepBand(band, step, grow[i]).cells;
 
     for (const objective of state.objectives) {
       if (!objective.captured && eq(objective.at, step)) {
@@ -275,6 +282,8 @@ function applyBandMove(state, bandId, path) {
   }
 
   band.moved = true;
+  // Whole once: the first march is over, and from now on it mends only in the wood.
+  if (band.cells.length >= band.maxLen) band.fresh = false;
 
   const head = band.cells[0];
   for (const other of state.bands) {

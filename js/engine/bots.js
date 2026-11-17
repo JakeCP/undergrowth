@@ -2,7 +2,10 @@
 //
 // - Saw-drone (the hunter): always engaged. It walks toward the nearest
 //   band, trapped bands included, and strikes band, then habitat, then a dam.
-//   If it cannot get to any band it goes for the nearest habitat instead.
+//   If the ground walls it off from every band (holes, water, stones,
+//   forest), it walks up to the wall nearest a band and waits there. It
+//   never turns on a den for want of a band: a moat holds it.
+//   (It still cuts a dam, and strikes a den, that it ends its walk next to.)
 // - Harvester: engaged, it charges the nearest band; otherwise it takes the
 //   shortest route to the nearest habitat, counting trees as if it could
 //   walk through them, and mows whatever tree is next on that route. It
@@ -376,7 +379,15 @@ function chooseWalk(state, bot) {
   let route = null;
 
   if (bot.type === 'saw') {
-    chosen = toBand() ?? toHabitat();
+    // Walled off: as near a band as it can get, counting every tile as open
+    // ground, so it closes up to the wall and waits.
+    const toWall = () => approach(
+      state,
+      bot,
+      tilesNextTo(state, seenCells(state, bot), () => true),
+      () => true,
+    );
+    chosen = toBand() ?? toWall() ?? toHabitat();
   } else if (bot.type === 'harvester') {
     if (isEngaged(state, bot)) chosen = toBand();
     if (chosen === null) {

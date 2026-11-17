@@ -4,7 +4,8 @@
 /** @typedef {{kind: TerrainKind, variant: 'grass'|'flowers'|'mushrooms'|null, under: 'water'|'hole'|null}} Tile */
 /** @typedef {'us'|'bots'} Side */
 /** @typedef {'attack'|'dig'|'build'|'mow'|'saw'|'pave'} Effect */
-/** @typedef {{id: string, label: string, effect: Effect, damage: number, minRange: number, maxRange: number, pattern: 'single'|'line3', push: number}} ActionDef */
+// `fromTail`: the action may also be made from the band's last cell, not only its head (the badger's dig).
+/** @typedef {{id: string, label: string, effect: Effect, damage: number, minRange: number, maxRange: number, pattern: 'single'|'line3', push: number, fromTail?: boolean}} ActionDef */
 /** @typedef {{minLen: number, name: string, grants: ActionDef[]}} Tier */
 // Bot types also carry `reach` (speed + 1: walk `speed` tiles, strike the next) and may be `alwaysEngaged`.
 // An animal type with `passThrough` (the bees) may walk through tiles other bands stand on, so long as
@@ -13,13 +14,15 @@
 /** @typedef {{id: string, name: string, side: Side, glyph: string, speed: number, flies: boolean, startLen: number, maxLenCap: number, actions: ActionDef[], tiers: Tier[], price: number|null, recruitBase: number, reach?: number, alwaysEngaged?: boolean, passThrough?: boolean, bristle?: number}} BandType */
 // A bot's plan: the tiles its head will walk (may be empty), then the tile it will strike.
 /** @typedef {{path: Pos[], strike: Pos|null, actionId: string|null}} Plan */
-/** @typedef {{id: string, type: string, side: Side, cells: Pos[], maxLen: number, moved: boolean, acted: boolean, trapped: boolean, plan: Plan|null}} Band */
+// `fresh`: an animal band still on its first march out of camp. It grows on any tile until it first
+// reaches full length or takes its first hit; after that it mends only in the wood (see `mendsOn`).
+/** @typedef {{id: string, type: string, side: Side, cells: Pos[], maxLen: number, moved: boolean, acted: boolean, trapped: boolean, plan: Plan|null, fresh?: boolean}} Band */
 /** @typedef {{at: Pos, kind: 'permit'|'stake', captured: boolean}} Objective */
 /** @typedef {'capture'|'clear'|'rescue'} Goal */
 /** @typedef {'habitat'|'wiped'|'turns'|'rescue'} LostReason */
 /** @typedef {{kind: 'move', band: string, path: Pos[]} | {kind: 'act', band: string, action: string, target: Pos} | {kind: 'end'}} Move */
 /** @typedef {{kind: 'moved', band: string, to: Pos} | {kind: 'falls', band: string, at: Pos, cause?: 'terrain'} | {kind: 'bumped', band: string, other: string|null}} PushOutcome */
-/** @typedef {{kind: 'move', band: string, path: Pos[]} | {kind: 'action', actor: string, actionId: string, from: Pos, target: Pos} | {kind: 'damage', band: string, amount: number, wiped: boolean, cells: Pos[]} | {kind: 'terrain', at: Pos, from: TerrainKind, to: TerrainKind, cause: string} | {kind: 'push', outcome: PushOutcome} | {kind: 'capture', at: Pos} | {kind: 'pickup', at: Pos} | {kind: 'freed', band: string} | {kind: 'plan', band: string, plan: Plan|null}} BattleEvent */
+/** @typedef {{kind: 'move', band: string, path: Pos[], grow?: boolean[]} | {kind: 'action', actor: string, actionId: string, from: Pos, target: Pos} | {kind: 'damage', band: string, amount: number, wiped: boolean, cells: Pos[]} | {kind: 'terrain', at: Pos, from: TerrainKind, to: TerrainKind, cause: string} | {kind: 'push', outcome: PushOutcome} | {kind: 'capture', at: Pos} | {kind: 'pickup', at: Pos} | {kind: 'freed', band: string} | {kind: 'plan', band: string, plan: Plan|null}} BattleEvent */
 /** @typedef {{levelId: string, width: number, height: number, tiles: Tile[][], bands: Band[], pickups: Pos[], objectives: Objective[], goal: Goal, turn: number, turnLimit: number|null, forestStart: number, habitatStart: number, pickupsTaken: number, outcome: 'won'|'lost'|null, lostReason: LostReason|null, events: BattleEvent[]}} BattleState */
 /** @typedef {{type: string, at: Pos}} Deployment */
 /** @typedef {{type: string, cells: Pos[]}} Placement */

@@ -17,7 +17,7 @@
 // The browser byte-diffs sw.js, installs the new worker, precaches
 // into the new cache name and — on activate — deletes every older
 // cache (skipWaiting + clients.claim: no waiting-worker prompt).
-const APP_VERSION = '51';
+const APP_VERSION = '58';
 const CACHE_NAME = `undergrowth-v${APP_VERSION}`;
 
 // Relative to the worker's scope ("./" = repo root on Pages).
@@ -102,6 +102,8 @@ const PRECACHE_URLS = [
   'js/ui/text.js',
   'js/ui/texture-list.js',
   'js/ui/title-assets.js',
+  'js/ui/title-scene.js',
+  'js/ui/title-state.js',
   'js/ui/title-view.js',
   'js/ui/turn-banner.js',
   'js/ui/turn-state.js',
@@ -182,11 +184,6 @@ const PRECACHE_URLS = [
   'assets/kit/result-victory.webp',
   'assets/kit/ribbon-green.webp',
   'assets/kit/ribbon-rust.webp',
-  'assets/title/title-bg-wide.webp',
-  'assets/title/title-bg.webp',
-  'assets/title/title-cast.webp',
-  'assets/title/title-foreground.webp',
-  'assets/title/title-theme.mp3',
   'assets/portraits/ants.webp',
   'assets/portraits/ants-blink.webp',
   'assets/portraits/badger.webp',
@@ -237,6 +234,23 @@ const PRECACHE_URLS = [
   'assets/portraits/shopkeeper-sad.webp',
   'assets/portraits/shopkeeper-shrewd.webp',
   'assets/portraits/shopkeeper-surprised.webp',
+  'assets/title/title-arch-tall.webp',
+  'assets/title/title-arch-wide.webp',
+  'assets/title/title-cast-ants.webp',
+  'assets/title/title-cast-badger.webp',
+  'assets/title/title-cast-bear.webp',
+  'assets/title/title-cast-beaver.webp',
+  'assets/title/title-cast-bees.webp',
+  'assets/title/title-cast-heroes.webp',
+  'assets/title/title-cast-owl.webp',
+  'assets/title/title-theme.mp3',
+  'assets/title/title-valley-cut-tall.webp',
+  'assets/title/title-valley-cut-wide.webp',
+  'assets/title/title-valley-mending-tall.webp',
+  'assets/title/title-valley-mending-wide.webp',
+  'assets/title/title-valley-regrown-tall.webp',
+  'assets/title/title-valley-regrown-wide.webp',
+  'assets/title/title-wordmark.webp',
 ];
 
 self.addEventListener('install', (event) => {

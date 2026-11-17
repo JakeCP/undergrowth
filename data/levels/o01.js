@@ -9,8 +9,9 @@
 // lose but a few of the band, and the one idea is reach. The level cannot
 // really be lost; its test checks the lesson instead.
 // The layout teaches it with two roads. The straight one, across the
-// meadow past the copse, walks into the reach and the fox is struck twice
-// (`naive`, recorded for the test). The other goes up the west wood and
+// meadow past the copse, walks into the reach and the fox is struck twice;
+// out in the open it cannot mend between the strikes, so the second one
+// finishes it (`naive`, recorded for the test, ends there). The other goes up the west wood and
 // along the north wood: a harvester cannot stand in trees, so a band deep
 // in the wood has no open tile beside it for the bot to strike from. The
 // copse keeps the harvester busy in the middle for four turns; it would
@@ -82,7 +83,6 @@ export default /** @type {import('../../js/engine/types.js').Level} */ ({
       { kind: 'end' },
       { kind: 'move', band: 'fox', path: [[5, 2], [5, 1], [6, 1]] },
       { kind: 'end' },
-      { kind: 'move', band: 'fox', path: [[7, 1], [7, 0]] },
     ],
   },
   alternatives: [

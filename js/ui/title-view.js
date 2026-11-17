@@ -1,37 +1,36 @@
-// The title screen: the game's name drawn in code over a layered
-// scene, one main button within thumb reach, and a sound toggle.
+// The title screen: a painted scene in layers, the game's name as a
+// painted wordmark, one main button within thumb reach, and a sound
+// toggle.
 //
-// Layers, back to front: the scene, the cast cut-out, the foliage
-// frame, a few drifting motes drawn in code, the title, the buttons.
-// Every image is optional (js/ui/title-assets.js, written by
+// Layers, back to front (js/ui/title-scene.js decides them): the
+// valley, mist drawn in code, the forest archway with the cast standing
+// in it, the nearest ferns, a few motes drawn in code, the name, the
+// buttons. Every image is optional (js/ui/title-assets.js, written by
 // scripts/title-assets.mjs): with none of them the scene is a
-// code-drawn gradient in the game's palette (css/title.css).
+// code-drawn gradient in the game's palette and the name is typed
+// (css/title.css).
 //
-// The top half is pure: which scene, which layers, where the motes
-// drift. `renderTitle` turns that into DOM. Animation lives in
+// What the scene shows follows the save (js/ui/title-state.js): who has
+// joined the fox and the hedgehog, and how the valley is mending.
+//
+// `renderTitle` turns the layers into DOM. Animation lives in
 // css/title.css (transform and opacity only) and is stilled under
-// prefers-reduced-motion.
+// prefers-reduced-motion. Nothing moves the view itself.
 
-import { TITLE_ASSETS } from './title-assets.js';
+import { TITLE_ASSETS, WORDMARK_NAME } from './title-assets.js';
+import { titleLayers } from './title-scene.js';
+import { NEW_TITLE_STATE } from './title-state.js';
 import { titleKey, focusKind, keyHint, keyListBox, takeKeys, TITLE_KEY_LIST } from './keys.js';
 
-/** The game's name. A working title: change it here and nowhere else. */
+/** @typedef {import('./title-scene.js').TitleAssets} TitleAssets */
+/** @typedef {import('./title-state.js').TitleState} TitleState */
+
+/**
+ * The game's name. A working title: change it here, and repaint the
+ * wordmark (scripts/title-assets.mjs, WORDMARK_NAME); until then the
+ * name is typed.
+ */
 export const GAME_TITLE = 'Undergrowth';
-
-/**
- * The title artwork that exists as shipped files under assets/title/,
- * or null for each piece that does not. Paths are relative to
- * index.html.
- * @typedef {{bg: string|null, bgWide: string|null, cast: string|null,
- *   foreground: string|null, theme: string|null}} TitleAssets
- */
-
-/**
- * One layer of the title screen, back to front. `src` is the image to
- * draw, or null for a code-drawn layer (the gradient scene, the motes,
- * the title, the controls). `animated` is false under reduced motion.
- * @typedef {{id: string, src: string|null, animated: boolean}} TitleLayer
- */
 
 /**
  * One drifting mote: `left` across the screen in %, `size` in px, and
@@ -46,41 +45,6 @@ export const GAME_TITLE = 'Undergrowth';
  */
 export function startLabel(hasSave) {
   return hasSave ? 'Continue' : 'Begin';
-}
-
-/**
- * Which scene image to draw. A wide screen takes the 16:9 scene when
- * it exists and otherwise the tall scene cropped to cover (the CSS
- * `object-fit: cover` does the cropping); a portrait screen takes the
- * tall scene. Null when neither exists: the gradient stands in.
- * @param {TitleAssets} assets
- * @param {boolean} wide
- * @returns {string|null}
- */
-export function pickScene(assets, wide) {
-  return wide ? (assets.bgWide ?? assets.bg) : (assets.bg ?? assets.bgWide);
-}
-
-/**
- * The layers to draw, back to front, for this combination of assets.
- * The scene, the motes, the title and the controls are always drawn;
- * the cast and the foliage frame only when their files exist.
- * @param {TitleAssets} assets
- * @param {{wide: boolean, reducedMotion: boolean}} opts
- * @returns {TitleLayer[]}
- */
-export function titleLayers(assets, opts) {
-  const animated = !opts.reducedMotion;
-  /** @type {TitleLayer[]} */
-  const layers = [{ id: 'scene', src: pickScene(assets, opts.wide), animated }];
-  if (assets.cast !== null) layers.push({ id: 'cast', src: assets.cast, animated });
-  if (assets.foreground !== null) layers.push({ id: 'foreground', src: assets.foreground, animated });
-  layers.push(
-    { id: 'motes', src: null, animated },
-    { id: 'title', src: null, animated },
-    { id: 'controls', src: null, animated },
-  );
-  return layers;
 }
 
 /**
@@ -138,11 +102,21 @@ function prefersReducedMotion() {
 }
 
 /**
- * @returns {boolean} true when the screen is wider than it is tall
+ * @returns {boolean} true when the player has a mouse or the like: a
+ *   pointer that hovers
+ */
+function hasFinePointer() {
+  const match = globalThis.matchMedia;
+  return typeof match === 'function' && match('(hover: hover) and (pointer: fine)').matches;
+}
+
+/**
+ * @returns {boolean} true when the screen is at least as wide as it is
+ *   tall: it takes the wide paintings
  */
 function isWideScreen() {
   const match = globalThis.matchMedia;
-  return typeof match === 'function' && match('(orientation: landscape)').matches;
+  return typeof match === 'function' && match('(min-aspect-ratio: 1/1)').matches;
 }
 
 /**
@@ -153,10 +127,14 @@ function isWideScreen() {
  * @property {(next: boolean) => void} onSound called from inside the
  *   toggle's tap, so turning sound on may start audio at once
  * @property {() => void} onStart leave the title screen
- * @property {TitleAssets} [assets] the artwork that exists; by default
- *   the generated list in js/ui/title-assets.js
- * @property {boolean} [wide] a wide (landscape) screen; by default read
- *   from the browser
+ * @property {TitleState} [state] what the save says the scene shows; by
+ *   default a game not yet begun
+ * @property {Readonly<Record<string, string|null>>} [assets] the artwork
+ *   that exists; by default the generated list in js/ui/title-assets.js
+ * @property {string} [wordmarkName] the name lettered in the wordmark
+ *   image: it is drawn only while that is the game's name
+ * @property {boolean} [wide] a screen at least as wide as tall; by
+ *   default read from the browser
  * @property {boolean} [reducedMotion] by default read from the browser
  */
 
@@ -172,7 +150,8 @@ export function renderTitle(root, opts) {
   const assets = opts.assets ?? TITLE_ASSETS;
   const wide = opts.wide ?? isWideScreen();
   const reducedMotion = opts.reducedMotion ?? prefersReducedMotion();
-  const layers = titleLayers(assets, { wide, reducedMotion });
+  const layers = titleLayers(assets, opts.state ?? NEW_TITLE_STATE, { wide, reducedMotion });
+  const wordmark = (opts.wordmarkName ?? WORDMARK_NAME) === GAME_TITLE ? (assets.wordmark ?? null) : null;
   let soundOn = opts.soundOn;
   // The title is left once: Enter on the focused button reaches the key
   // listener below and then presses the button, and a double tap presses
@@ -193,6 +172,35 @@ export function renderTitle(root, opts) {
   if (reducedMotion) screen.classList.add('is-still');
   root.appendChild(screen);
 
+  /**
+   * A decorative image: the paintings say nothing a screen reader needs.
+   * @param {string} src
+   * @param {string} className
+   * @returns {HTMLImageElement}
+   */
+  function image(src, className) {
+    const img = document.createElement('img');
+    img.className = className;
+    img.setAttribute('src', src);
+    img.setAttribute('alt', '');
+    return img;
+  }
+
+  /**
+   * @param {import('./title-scene.js').TitleLayer} layer
+   * @param {string} className
+   * @returns {HTMLDivElement}
+   */
+  function layerBox(layer, className) {
+    const div = document.createElement('div');
+    div.className = className;
+    div.setAttribute('data-layer', layer.id);
+    div.setAttribute('data-animated', String(layer.animated));
+    div.setAttribute('aria-hidden', 'true');
+    if (layer.shape !== undefined) div.setAttribute('data-shape', layer.shape);
+    return div;
+  }
+
   /** @type {HTMLButtonElement|null} */
   let startBtn = null;
   /** @type {HTMLButtonElement|null} */
@@ -204,9 +212,25 @@ export function renderTitle(root, opts) {
       wrap.className = 'title-heading';
       wrap.setAttribute('data-layer', 'title');
       wrap.setAttribute('data-animated', String(layer.animated));
+      // The name is always text, for screen readers and as the fallback.
+      // The painted wordmark is drawn over it when it exists (the text is
+      // then clipped away by css/title.css) and gives way if it fails to
+      // load.
       const name = document.createElement('h1');
       name.className = 'title-name';
-      name.textContent = GAME_TITLE;
+      const text = document.createElement('span');
+      text.className = 'title-name-text';
+      text.textContent = GAME_TITLE;
+      name.appendChild(text);
+      if (wordmark !== null) {
+        const mark = image(wordmark, 'title-wordmark');
+        name.classList.add('has-wordmark');
+        mark.addEventListener('error', () => {
+          name.classList.remove('has-wordmark');
+          mark.remove();
+        });
+        name.appendChild(mark);
+      }
       wrap.appendChild(name);
       screen.appendChild(wrap);
     } else if (layer.id === 'controls') {
@@ -247,24 +271,74 @@ export function renderTitle(root, opts) {
         dot.style.animationDuration = `${mote.duration}s`;
         motes.appendChild(dot);
       }
+      const leaf = document.createElement('span');
+      leaf.className = 'title-leaf';
+      motes.appendChild(leaf);
       screen.appendChild(motes);
-    } else {
-      // scene, cast, foreground: an image layer, or the gradient scene.
-      const div = document.createElement('div');
-      div.className = layer.id === 'scene' && layer.src === null
-        ? 'title-layer title-scene title-scene--gradient'
-        : `title-layer title-${layer.id}`;
-      div.setAttribute('data-layer', layer.id);
-      div.setAttribute('data-animated', String(layer.animated));
-      div.setAttribute('aria-hidden', 'true');
-      if (layer.src !== null) {
-        const img = document.createElement('img');
-        img.setAttribute('src', layer.src);
-        img.setAttribute('alt', '');
+    } else if (layer.id === 'valley') {
+      // The valley's box is the painting's own shape, covering the
+      // screen (css/title.css), so the lamps stay on the machines.
+      const div = layerBox(layer, layer.src === null ? 'title-layer title-valley title-valley--gradient' : 'title-layer title-valley');
+      if (layer.src !== null) div.appendChild(image(layer.src, 'title-valley-img'));
+      for (const lamp of layer.lamps ?? []) {
+        const dot = document.createElement('span');
+        dot.className = 'title-lamp';
+        dot.style.left = `${lamp.left}%`;
+        dot.style.top = `${lamp.top}%`;
+        div.appendChild(dot);
+      }
+      screen.appendChild(div);
+    } else if (layer.id === 'mist') {
+      const div = layerBox(layer, 'title-mist');
+      for (const n of [1, 2]) {
+        const band = document.createElement('span');
+        band.className = `title-mist-band title-mist-band--${n}`;
+        div.appendChild(band);
+      }
+      screen.appendChild(div);
+    } else if (layer.id === 'arch' && layer.src !== null) {
+      // The archway's box, too, is its painting's shape; the cast are
+      // placed in percentages of it, so they stand on the painted root.
+      const div = layerBox(layer, 'title-layer title-arch');
+      div.appendChild(image(layer.src, 'title-arch-img'));
+      const shafts = document.createElement('div');
+      shafts.className = 'title-shafts';
+      for (const n of [1, 2, 3]) {
+        const shaft = document.createElement('span');
+        shaft.className = `title-shaft title-shaft--${n}`;
+        shafts.appendChild(shaft);
+      }
+      div.appendChild(shafts);
+      for (const member of layer.cast ?? []) {
+        const img = image(member.src, 'title-cast');
+        img.setAttribute('data-cast', member.id);
+        img.style.left = `${member.spot.left}%`;
+        img.style.bottom = `${member.spot.bottom}%`;
+        img.style.width = `${member.spot.width}%`;
         div.appendChild(img);
       }
       screen.appendChild(div);
+    } else if (layer.id === 'ferns') {
+      const div = layerBox(layer, 'title-ferns');
+      if (layer.ferns?.left != null) div.appendChild(image(layer.ferns.left, 'title-fern title-fern--left'));
+      if (layer.ferns?.right != null) div.appendChild(image(layer.ferns.right, 'title-fern title-fern--right'));
+      screen.appendChild(div);
     }
+  }
+
+  // Depth: under a mouse the layers shift a few pixels against each
+  // other, the nearest most (css/title.css reads --px and --py, each -1
+  // to 1 from the screen's centre). It follows the hand and stops when
+  // the hand stops; a touch screen has no hover to follow, and reduced
+  // motion wants nothing to move.
+  if (!reducedMotion && hasFinePointer()) {
+    screen.addEventListener('pointermove', (evt) => {
+      const box = screen.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return;
+      const unit = (/** @type {number} */ v) => String(Math.round(Math.max(-1, Math.min(1, v)) * 100) / 100);
+      screen.style.setProperty('--px', unit(((evt.clientX - box.left) / box.width) * 2 - 1));
+      screen.style.setProperty('--py', unit(((evt.clientY - box.top) / box.height) * 2 - 1));
+    });
   }
 
   // The keys (js/ui/keys.js, titleKey): Enter starts, from anywhere on

@@ -379,13 +379,28 @@ test('saw strike order: band, then habitat, then a dam as a last resort; never f
   assert.deepEqual(planOf(forest, 'saw-0'), NOTHING);
 });
 
-test('saw that cannot get to any band goes for the nearest habitat instead', () => {
+test('a saw walled off from every band waits at the wall: it does not turn on the den', () => {
   const s = makeState(['..~.', '..~.', 'H.~.'], [
     { id: 'saw-0', type: 'saw', cells: [[1, 0]] },
     { id: 'ants', type: 'ants', cells: [[3, 0]] },
   ]);
-  assert.deepEqual(planOf(s, 'saw-0'), { path: [[1, 1], [0, 1]], strike: [0, 2], actionId: 'saw' });
+  assert.deepEqual(planOf(s, 'saw-0'), { path: [], strike: null, actionId: null });
 });
+
+test('a walled-off saw walks up to the wall nearest the band', () => {
+  const s = makeState(['H.....o.', '......o.', '......o.'], [
+    { id: 'saw-0', type: 'saw', cells: [[0, 2], [0, 1]] },
+    { id: 'ants', type: 'ants', cells: [[7, 1]] },
+  ]);
+  // Three steps nearer, ties to the smaller y as ever.
+  assert.deepEqual(planOf(s, 'saw-0'), { path: [[0, 1], [1, 1], [2, 1]], strike: null, actionId: null });
+  const later = makeState(['H.....o.', '......o.', '......o.'], [
+    { id: 'saw-0', type: 'saw', cells: [[3, 1], [3, 2]] },
+    { id: 'ants', type: 'ants', cells: [[7, 1]] },
+  ]);
+  assert.deepEqual(planOf(later, 'saw-0'), { path: [[4, 1], [5, 1]], strike: null, actionId: null });
+});
+
 
 test('bots never enter forest: the saw goes around, ties by y then x', () => {
   const s = makeState(['.....', '..T..', '.....'], [

@@ -26,7 +26,7 @@
  * The engine events this module reads, in the shapes of the engine
  * contract. Terrain kinds are plain strings here so the habitat kinds
  * need no change to this file.
- * @typedef {{kind: 'move', band: string, path: Pos[]}
+ * @typedef {{kind: 'move', band: string, path: Pos[], grow?: boolean[]}
  *   | {kind: 'action', actor: string, actionId: string, from: Pos, target: Pos}
  *   | {kind: 'damage', band: string, amount: number, wiped: boolean, cells: Pos[]}
  *   | {kind: 'terrain', at: Pos, from: string, to: string, cause: string}
@@ -71,7 +71,7 @@
  * - fade: under reduced motion or instant bot speed, `band` or the tile
  *   `at` cross-fades to its new state.
  * @typedef {StepTime & (
- *     {kind: 'glide', band: string, at: null, path: Pos[]}
+ *     {kind: 'glide', band: string, at: null, path: Pos[], grow?: boolean[]}
  *   | {kind: 'lunge'|'sweep'|'dirt', band: string, at: Pos, origin: Pos}
  *   | {kind: 'hit', band: string, at: null}
  *   | {kind: 'pop', band: string, at: Pos}
@@ -226,21 +226,25 @@ export function sequenceEnd(steps) {
  * `frames[0]` is the band as it stands and `frames[i]` is the band after
  * the head has entered `path[i - 1]`. The body follows the engine's rule:
  * the head takes the new tile, the rest fall in behind it, and the band
- * grows by one token a step up to `maxLen`. Token `k` glides from
- * `frames[i][k]` to `frames[i + 1][k]`; a token in the longer frame only
- * is a new one that appears.
+ * grows by one token a step up to `maxLen`, except on a step whose `grow`
+ * entry is false (wounds mend only in the wood: the move event says where
+ * it grew). Token `k` glides from `frames[i][k]` to `frames[i + 1][k]`; a
+ * token in the longer frame only is a new one that appears.
  * @param {Pos[]} cells head first
  * @param {number} maxLen
  * @param {Pos[]} path
+ * @param {boolean[]} [grow] one entry per step of `path`; missing means it grows
  * @returns {Pos[][]}
  */
-export function glideFrames(cells, maxLen, path) {
+export function glideFrames(cells, maxLen, path, grow) {
   let current = cells.map(copy);
   /** @type {Pos[][]} */
   const frames = [current];
-  for (const step of path) {
+  for (let i = 0; i < path.length; i += 1) {
+    const step = path[i];
     const body = current.filter((c) => c[0] !== step[0] || c[1] !== step[1]);
-    current = [step, ...body].slice(0, maxLen).map(copy);
+    const cap = grow !== undefined && grow[i] === false ? current.length : maxLen;
+    current = [step, ...body].slice(0, cap).map(copy);
     frames.push(current);
   }
   return frames;
@@ -321,7 +325,10 @@ function layOut(events, tileKind) {
       if (event.path.length === 0) continue;
       const start = afterAll();
       const duration = glideDuration(event.path.length);
-      add({ kind: 'glide', band: event.band, at: null, path: event.path.map(copy), start, duration, event: i });
+      /** @type {AnimStep} */
+      const glide = { kind: 'glide', band: event.band, at: null, path: event.path.map(copy), start, duration, event: i };
+      if (event.grow !== undefined) glide.grow = event.grow.slice();
+      add(glide);
       bandBusy.set(event.band, start + duration);
       anchor = start + duration;
       walk = { start, duration, path: event.path };

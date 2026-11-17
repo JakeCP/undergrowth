@@ -13,14 +13,18 @@
 // Running straight for the permit with the ants alone wins on turn 5, but
 // the den takes the harvester's strike on the bots' fourth turn and is won
 // damaged: the warning that one more hit loses. The level test checks it.
-// Answer with the ants alone, den untouched: one turn into the forest belt
-// under the pen pulls the harvester's mow onto them, and then they run for
-// the permit (six turns).
+// Answer with the ants alone, den untouched: march along the south wood
+// and step out by the pen, which pulls the harvester's mow onto them, then
+// fall back through the trees and run for the permit (seven turns: a hit
+// taken in the open mends only once the ants are back in the wood).
 // Second approach: bring the badger too, bought in the shop with what o01
 // and o02 paid (the story gives it only at l05). It walks along the south
 // wood and steps into the trees by the harvester's lane, where the
 // harvester strikes it instead of mowing on to the den, while the ants run
 // the corridor without a detour (five turns, den untouched).
+// Third approach: the ants alone stand in the south wood beside the
+// harvester's lane and bite it down. In the trees they mend between its
+// strikes, which is what the wood is for (five turns, the field cleared).
 export default /** @type {import('../../js/engine/types.js').Level} */ ({
   id: 'l01',
   name: 'The Clearing Edge',
@@ -51,9 +55,11 @@ export default /** @type {import('../../js/engine/types.js').Level} */ ({
       { type: 'ants', at: [0, 7] },
     ],
     moves: [
-      { kind: 'move', band: 'ants', path: [[0, 6], [0, 5], [1, 5]] },
+      { kind: 'move', band: 'ants', path: [[0, 6], [1, 6], [2, 6]] },
       { kind: 'end' },
-      { kind: 'move', band: 'ants', path: [[2, 5], [3, 5], [4, 5]] },
+      { kind: 'move', band: 'ants', path: [[3, 6], [4, 6], [5, 6]] },
+      { kind: 'end' },
+      { kind: 'move', band: 'ants', path: [[4, 6], [4, 5]] },
       { kind: 'end' },
       { kind: 'move', band: 'ants', path: [[3, 5], [2, 5], [2, 4]] },
       { kind: 'end' },
@@ -83,6 +89,25 @@ export default /** @type {import('../../js/engine/types.js').Level} */ ({
         { kind: 'move', band: 'ants', path: [[4, 1], [5, 1], [6, 1]] },
         { kind: 'end' },
         { kind: 'move', band: 'ants', path: [[6, 0], [7, 0]] },
+      ],
+    },
+    {
+      deploy: [
+        { type: 'ants', at: [0, 7] },
+      ],
+      moves: [
+        { kind: 'move', band: 'ants', path: [[0, 6], [1, 6], [2, 6]] },
+        { kind: 'end' },
+        { kind: 'move', band: 'ants', path: [[3, 6], [4, 6]] },
+        { kind: 'end' },
+        { kind: 'move', band: 'ants', path: [[5, 6]] },
+        { kind: 'act', band: 'ants', action: 'bite', target: [5, 5] },
+        { kind: 'end' },
+        { kind: 'move', band: 'ants', path: [[4, 6], [4, 5], [4, 4]] },
+        { kind: 'act', band: 'ants', action: 'bite', target: [5, 4] },
+        { kind: 'end' },
+        { kind: 'move', band: 'ants', path: [[5, 4]] },
+        { kind: 'act', band: 'ants', action: 'bite', target: [5, 5] },
       ],
     },
   ],
