@@ -1,0 +1,393 @@
+/* The interface kit: one look for every screen's buttons, panels and
+   banners, drawn from the owner's painted pieces (assets/kit/, made by
+   scripts/ui-assets.mjs). Loaded last, after every screen's own
+   stylesheet, which keeps only layout.
+
+   Every component is drawn in code first. When its painted piece exists,
+   js/ui/ui-kit.js puts `has-kit-<piece>` on <html> and the piece's
+   address in `--kit-<piece>`, and the rules under that class draw it from
+   the piece instead.
+
+   How the pieces are cut (CSS border-image). Each piece is cropped to its
+   own edge by the script, so the insets below are fractions of the piece:
+   - The buttons and ribbons are cut in three upright strips: the two ends
+     keep their shape and the middle stretches. border-image-slice is
+     `0 <end> fill` (no top or bottom strip), and border-image-width is
+     `0 <end width>`, the end width in CSS pixels being the element's
+     height times the end's own width over its height (--cap), so an end
+     is never squashed or stretched sideways.
+       main button   84 of 900 px (9.33%), end 84/182 of the height
+       plain button  80 of 900 px (8.89%), end 80/192
+       green ribbon 150 of 1200 px (12.5%), end 150/106
+       rust ribbon  150 of 1200 px (12.5%), end 150/173
+   - The panels are cut in nine: corners that keep their shape, edges that
+     stretch along, and a middle that fills. Wood: 16% each side (the frame
+     and its carved leaf, 124 of 768 px). Parchment: 6.25% (the deckled
+     edge, 48 of 768 px). --edge sets how big a corner is drawn.
+   - The round button is drawn whole, at its own size.
+
+   Pressing: a button moves down and darkens at once, as if pushed in;
+   with a mouse it rises a little under the pointer. Only transform is
+   animated, and not under reduced motion. The keyboard's ring (game.css,
+   button:focus-visible) follows each shape's rounded outline.
+
+   Colours are the game's palette (patterns.js and :root in game.css) and
+   the painted pieces' own woods: --honey and --bark below. */
+
+:root {
+  --honey: #e4b46e;
+  --honey-deep: #b77d3a;
+  --bark: #6e4b2f;
+  --leaf-paint: #2f5a27;
+  /* The middles of the painted pieces, for small bits drawn to match
+     them and for the colour laid under each piece's inner seams (below). */
+  --parchment: #f3dbba;
+  --wood-board: #1e340d;
+  --plank-green: #325513;
+  --plank-honey: #e4a96a;
+  --kit-shadow: rgba(12, 29, 18, 0.55);
+}
+
+/* --- the backdrop: a dark forest canopy behind every screen --- */
+
+html.has-kit-backdrop body,
+html.has-kit-backdrop .map-screen,
+html.has-kit-backdrop .battle-bar {
+  background: var(--frame-deep) var(--kit-backdrop) 0 0 / 256px 256px repeat fixed;
+}
+
+/* --- buttons --- */
+
+/* A frame for what a button carries on its edge (a badge, a glow). With
+   no weight of its own, so a screen that places a button wins. */
+:where(.ui-btn, .ui-btn-round) {
+  position: relative;
+}
+
+.ui-btn {
+  /* The button's height, which sets how wide its painted ends are. */
+  --btn-h: 50px;
+  --cap: 0.4615;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: var(--btn-h);
+  margin: 0;
+  padding: 3px calc(var(--btn-h) * var(--cap) + 8px) 3px;
+  font: inherit;
+  font-size: 19px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 0 solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  filter: grayscale(var(--btn-grey, 0)) brightness(var(--btn-bright, 1)) var(--btn-drop, );
+  transition: transform 110ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.ui-btn--small {
+  --btn-h: 44px;
+  font-size: 17px;
+}
+
+.ui-btn--large {
+  --btn-h: 58px;
+  font-size: 21px;
+}
+
+/* The main button: the green-painted plank with a leaf at each end.
+   Cream words. Drawn in code: a green pill in a honey rim. */
+.ui-btn--primary {
+  --cap: 0.4615;
+  color: var(--cream);
+  text-shadow: 0 1px 2px rgba(12, 29, 18, 0.75);
+  background: linear-gradient(180deg, #3d7a3a 0%, var(--leaf-paint) 100%);
+  box-shadow:
+    inset 0 0 0 2px var(--honey),
+    inset 0 0 0 4px rgba(110, 75, 47, 0.55),
+    0 3px 0 var(--bark),
+    0 6px 12px var(--kit-shadow);
+}
+
+/* The quieter button: plain honey wood, ink words. */
+.ui-btn--secondary {
+  --cap: 0.4167;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 244, 222, 0.45);
+  background: linear-gradient(180deg, #f0c98a 0%, #d9a560 100%);
+  box-shadow:
+    inset 0 0 0 2px var(--honey-deep),
+    inset 0 0 0 4px rgba(255, 244, 222, 0.35),
+    0 3px 0 var(--bark),
+    0 6px 12px var(--kit-shadow);
+}
+
+/* Where a piece is cut, a button or panel placed at a fraction of a pixel
+   can show a hairline between its slices. A plain rectangle of the
+   piece's own middle colour lies under the inner seams, inside the ends
+   and edges, so a hairline shows that colour instead of what is behind. */
+html.has-kit-button-primary .ui-btn--primary,
+html.has-kit-button-secondary .ui-btn--secondary {
+  --btn-drop: drop-shadow(0 3px 3px var(--kit-shadow));
+  background: linear-gradient(var(--btn-under), var(--btn-under)) center / calc(100% - 2 * var(--btn-h) * var(--cap) + 6px) 70% no-repeat;
+  box-shadow: none;
+  border-image-repeat: stretch;
+  border-image-width: 0 calc(var(--btn-h) * var(--cap));
+}
+
+html.has-kit-button-primary .ui-btn--primary {
+  --btn-under: var(--plank-green);
+  border-image-source: var(--kit-button-primary);
+  border-image-slice: 0 9.33% fill;
+}
+
+html.has-kit-button-secondary .ui-btn--secondary {
+  --btn-under: var(--plank-honey);
+  border-image-source: var(--kit-button-secondary);
+  border-image-slice: 0 8.89% fill;
+}
+
+/* The small round button: a slice of branch. A drawn icon or a short
+   word sits on it in ink. */
+.ui-btn-round {
+  --round: 44px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--round);
+  height: var(--round);
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink);
+  background: radial-gradient(circle at 50% 50%, #f3d9a4 0 56%, #ddb06c 60%, var(--bark) 70%, #4e3420 100%);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 3px 6px var(--kit-shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  filter: grayscale(var(--btn-grey, 0)) brightness(var(--btn-bright, 1)) var(--btn-drop, );
+  transition: transform 110ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+html.has-kit-button-round .ui-btn-round {
+  --btn-drop: drop-shadow(0 2px 2px var(--kit-shadow));
+  background: var(--kit-button-round) center / 100% 100% no-repeat;
+  box-shadow: none;
+}
+
+/* Open (a panel it toggles is showing): pushed in and darker. */
+.ui-btn-round[aria-expanded="true"] {
+  --btn-bright: 0.78;
+  transform: translateY(1px);
+}
+
+/* Hover, where there is a mouse: a little lift and light. */
+@media (hover: hover) and (pointer: fine) {
+  .ui-btn:hover:not(:disabled):not(.is-dead),
+  .ui-btn-round:hover:not(:disabled) {
+    --btn-bright: 1.08;
+    transform: translateY(-1px);
+  }
+}
+
+/* Pressed: pushed in, darker, its shadow tucked under. No transition on
+   the colour: it darkens at once, as wood does under a thumb. */
+.ui-btn:active:not(:disabled):not(.is-dead),
+.ui-btn-round:active:not(:disabled) {
+  --btn-bright: 0.82;
+  --btn-drop: drop-shadow(0 1px 1px var(--kit-shadow));
+  transform: translateY(2px) scale(0.985);
+  transition-duration: 40ms;
+}
+
+.ui-btn--primary:active:not(:disabled):not(.is-dead),
+.ui-btn--secondary:active:not(:disabled):not(.is-dead) {
+  box-shadow: none;
+}
+
+html.has-kit-button-primary .ui-btn--primary:active:not(:disabled):not(.is-dead),
+html.has-kit-button-secondary .ui-btn--secondary:active:not(:disabled):not(.is-dead) {
+  --btn-drop: drop-shadow(0 1px 1px var(--kit-shadow));
+}
+
+/* Dead (disabled, or a deal the purse cannot pay for, which still takes
+   a tap so Hazel can say why): greyed and dimmed, flat, still legible. */
+.ui-btn:disabled,
+.ui-btn.is-dead,
+.ui-btn-round:disabled {
+  --btn-grey: 0.7;
+  --btn-bright: 0.72;
+  --btn-drop: drop-shadow(0 0 0 transparent);
+  cursor: default;
+  text-shadow: none;
+}
+
+.ui-btn--primary:disabled,
+.ui-btn--primary.is-dead {
+  color: rgba(244, 239, 230, 0.8);
+}
+
+/* Chosen with the keys, a dead button still shows its ring plainly. The
+   filter that greys it takes the outline with it, so most of the grey
+   lifts while the ring is on (the shop's deal the purse cannot pay for). */
+.ui-btn.is-dead:focus-visible {
+  --btn-grey: 0.2;
+  --btn-bright: 0.86;
+}
+
+/* The ring stands clear of the painted rim. */
+.ui-btn:focus-visible,
+.ui-btn-round:focus-visible {
+  outline-offset: 3px;
+}
+
+/* The small key hint, in the words' own colour. */
+.ui-btn .key-hint,
+.ui-btn-round .key-hint {
+  margin-left: 2px;
+  vertical-align: 0;
+  text-shadow: none;
+}
+
+/* --- panels --- */
+
+/* Parchment: cards, the goal, labels that are cards. Ink words. */
+.ui-panel--parchment {
+  --edge: 16px;
+  color: var(--ink);
+  background: var(--cream);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(12, 29, 18, 0.3), 0 8px 20px rgba(12, 29, 18, 0.42);
+}
+
+html.has-kit-panel-parchment .ui-panel--parchment {
+  background: linear-gradient(var(--parchment), var(--parchment)) center / calc(100% - 2 * var(--edge) + 6px) calc(100% - 2 * var(--edge) + 6px) no-repeat;
+  border-radius: 6px;
+  box-shadow: none;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 0;
+  border-image: var(--kit-panel-parchment) 6.25% fill / var(--edge) stretch;
+  filter: drop-shadow(0 5px 8px rgba(12, 29, 18, 0.45));
+}
+
+/* Wood: the dialogue box, the map's panel, the settings, the key list.
+   Cream words on the green board, inside the honey frame. */
+.ui-panel--wood {
+  --edge: 30px;
+  color: var(--cream);
+  background: var(--frame);
+  border: 3px solid var(--honey);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 2px var(--bark), 0 8px 20px rgba(12, 29, 18, 0.5);
+}
+
+html.has-kit-panel-wood .ui-panel--wood {
+  background: linear-gradient(var(--wood-board), var(--wood-board)) center / calc(100% - 2 * var(--edge) + 6px) calc(100% - 2 * var(--edge) + 6px) no-repeat;
+  border-radius: 14px;
+  box-shadow: none;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 0;
+  border-image: var(--kit-panel-wood) 16% fill / var(--edge) stretch;
+  filter: drop-shadow(0 6px 10px rgba(12, 29, 18, 0.5));
+}
+
+/* --- ribbons --- */
+
+/* A cloth banner; the words sit on its flat middle, which is a little
+   above the middle of the picture (the folds hang below it). */
+.ui-ribbon {
+  --ribbon-h: 46px;
+  --cap: 1.415;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ribbon-h);
+  padding: 0 calc(var(--ribbon-h) * var(--cap) * var(--ribbon-in, 1) + 4px) calc(var(--ribbon-h) * 0.2);
+  font-size: 20px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--cream);
+  text-shadow: 0 1px 2px rgba(12, 29, 18, 0.7);
+  background: #6d8a2c;
+  clip-path: polygon(0 0, 100% 0, 96% 40%, 100% 80%, 0 80%, 4% 40%);
+}
+
+.ui-ribbon--rust {
+  --cap: 0.867;
+  /* Its folds are narrower: the words may come a little nearer them. */
+  --ribbon-in: 0.85;
+  background: #b4532a;
+}
+
+html.has-kit-ribbon-green .ui-ribbon--green,
+html.has-kit-ribbon-rust .ui-ribbon--rust {
+  background: none;
+  clip-path: none;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 0;
+  border-image-slice: 0 12.5% fill;
+  border-image-width: 0 calc(var(--ribbon-h) * var(--cap));
+  border-image-repeat: stretch;
+  filter: drop-shadow(0 3px 4px rgba(12, 29, 18, 0.55));
+}
+
+html.has-kit-ribbon-green .ui-ribbon--green {
+  border-image-source: var(--kit-ribbon-green);
+}
+
+html.has-kit-ribbon-rust .ui-ribbon--rust {
+  border-image-source: var(--kit-ribbon-rust);
+}
+
+/* --- action emblems --- */
+
+/* A small painted picture before an action's name. */
+.ui-emblem {
+  display: inline-block;
+  flex: none;
+  width: 1.45em;
+  height: 1.45em;
+  margin: -0.2em 0.12em -0.2em -0.1em;
+  vertical-align: middle;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+  /* A hairline of shade, so a pale emblem (the teeth) holds on paper. */
+  filter: drop-shadow(0 0 0.6px rgba(29, 38, 24, 0.75));
+}
+
+/* In a button the emblem comes first, before the words, wherever it was
+   added. */
+.ui-btn > .ui-emblem {
+  order: -1;
+  margin: -4px 0 -4px -6px;
+  width: 30px;
+  height: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn,
+  .ui-btn-round {
+    transition: none;
+  }
+}

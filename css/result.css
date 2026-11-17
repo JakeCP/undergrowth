@@ -1,0 +1,463 @@
+/* The end of a battle: the ribbon over the board, then the result screen
+   built around the painted scene of the win or the loss. The ribbon, the
+   parchment and the buttons are the kit's (css/ui.css, loaded after this
+   sheet); only their size and place are set here, by rules that name
+   their place too, so they outweigh the kit's own.
+
+   Motion (js/ui/finale.js, js/ui/result-view.js) is transform and opacity
+   only, played from script, and not at all under reduced motion. */
+
+/* --- on the board --- */
+
+/* The ribbon unfurls across the board with the word on it; the seed
+   count hangs under it on a parchment tag, or the defeat's words sit
+   under it on the dimmed board. Centred without a transform: a painted
+   piece moved by half a pixel shows hairlines between its slices. */
+.board-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.board-banner .board-banner__ribbon {
+  --ribbon-h: 58px;
+  --ribbon-in: 0.7;
+  width: min(94%, 560px);
+  font-size: 31px;
+  letter-spacing: 0.04em;
+}
+
+.board-banner__title {
+  display: block;
+}
+
+.board-banner .board-banner__seeds {
+  --edge: 12px;
+  margin: -6px 0 0;
+  padding: 3px 18px 5px;
+  font-size: 24px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-banner__text {
+  max-width: 86%;
+  margin: 4px 0 0;
+  font-size: 21px;
+  line-height: 1.25;
+  color: var(--cream);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 14px rgba(12, 29, 18, 0.95);
+}
+
+@media (min-width: 720px) {
+  .board-banner .board-banner__ribbon {
+    --ribbon-h: 74px;
+    font-size: 40px;
+  }
+
+  .board-banner .board-banner__seeds {
+    --edge: 14px;
+    padding: 4px 22px 6px;
+    font-size: 28px;
+  }
+
+  .board-banner__text {
+    font-size: 24px;
+  }
+}
+
+/* --- the result screen --- */
+
+/* A phone: the scene across the top at full width, the ribbon over its
+   sky, the panel rising over the scene's foot, the buttons under it. */
+.result-screen {
+  max-width: 560px;
+  min-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+@supports (height: 100dvh) {
+  .result-screen {
+    min-height: calc(100dvh - 16px);
+  }
+}
+
+.result-hero {
+  position: relative;
+  /* Out to the screen's edges, past the body's 16px. */
+  margin: 0 -16px;
+}
+
+.result-scene {
+  aspect-ratio: 1280 / 853;
+  overflow: hidden;
+}
+
+.result-scene__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* The scene's foot fades into the canopy under the panel. */
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+
+.result-screen--won .result-scene__img {
+  object-position: 34% 100%;
+}
+
+.result-screen--lost .result-scene__img {
+  object-position: 32% 100%;
+}
+
+/* The ribbon sits in the calm upper third of the scene. */
+.result-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(36%, 100px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px 0;
+}
+
+/* The ribbon carries the word and, under it, the level's name. */
+.result-title.ui-ribbon {
+  --ribbon-h: 90px;
+  --ribbon-in: 0.6;
+  flex-direction: column;
+  gap: 4px;
+  width: min(100%, 400px);
+  margin: 0;
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.result-title__word {
+  display: block;
+}
+
+.result-sub {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+
+/* With no painted scene: the ribbon on the canopy, with room round it. */
+.result-screen--bare .result-hero {
+  margin: 0;
+  padding: clamp(28px, 9vh, 72px) 0 18px;
+}
+
+.result-screen--bare .result-banner {
+  position: static;
+  height: auto;
+  padding: 0;
+}
+
+.result-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -34px;
+}
+
+.result-screen--bare .result-body {
+  margin-top: 0;
+}
+
+.result-screen .result-card {
+  --edge: 20px;
+  width: min(100%, 400px);
+  padding: 16px 22px 18px;
+}
+
+/* What happened. A lost den is the loudest. */
+.result-reason {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.result-reason--den {
+  color: #9c3a22;
+  font-weight: 600;
+}
+
+.result-reason .ui-icon {
+  margin-right: 2px;
+}
+
+/* How well it went: dens standing, forest kept, side by side, each with
+   its painted icon over a small caption. */
+.result-standing {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.result-stand {
+  flex: 1 1 0;
+  max-width: 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin: 0;
+  padding: 4px 8px 6px;
+  border-radius: 10px;
+  background: rgba(110, 75, 47, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(110, 75, 47, 0.24);
+}
+
+.result-stand__count {
+  font-size: 21px;
+  line-height: 1.15;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-stand__count .ui-icon {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.result-stand__label {
+  font-size: 10.5px;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #5e4f33;
+}
+
+/* The seed tally. */
+.reward-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  text-align: left;
+  border-top: 1px solid rgba(29, 38, 24, 0.18);
+}
+
+.reward-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.reward-row__label {
+  color: #5e4f33;
+}
+
+.reward-row--total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(29, 38, 24, 0.35);
+  font-size: 24px;
+}
+
+.reward-row--total .reward-row__label {
+  color: var(--ink);
+}
+
+/* The default after a battle is the map: "Back to map" is the kit's main
+   button and "Play again" the plain one beside it (css/ui.css). */
+.result-screen .ui-btn--primary {
+  min-width: 170px;
+}
+
+.result-actions {
+  margin: 18px 0 0;
+  gap: 12px;
+}
+
+/* Waiting for the painted scene: nothing shows over an empty frame. */
+.result-screen.is-waiting .result-banner,
+.result-screen.is-waiting .result-body {
+  opacity: 0;
+}
+
+/* On a phone the scene is taller than the painting, its sides trimmed
+   round the animals: after a win as tall as the screen allows with the
+   tally still clear of a story scene's cut-outs, which stand over the
+   lower part of the screen; after a loss, with only a line under it,
+   taller still. */
+@media (max-width: 599px) {
+  .result-scene {
+    aspect-ratio: auto;
+    height: min(100vw / 1.3, max(100vw / 1.5, 100vh - 530px));
+  }
+
+  .result-screen--lost .result-scene {
+    height: min(100vw * 1.1, max(100vw / 1.5, 100vh - 380px));
+  }
+
+  @supports (height: 100dvh) {
+    .result-scene {
+      height: min(100vw / 1.3, max(100vw / 1.5, 100dvh - 530px));
+    }
+
+    .result-screen--lost .result-scene {
+      height: min(100vw * 1.1, max(100vw / 1.5, 100dvh - 380px));
+    }
+  }
+
+  .result-screen--lost .result-card {
+    padding: 24px 22px 26px;
+  }
+
+  /* With no painted scene, the column stands in the middle. */
+  .result-screen--bare {
+    justify-content: center;
+  }
+}
+
+/* A narrow phone: a smaller ribbon, so the sky still holds it. */
+@media (max-width: 374px) {
+  .result-title.ui-ribbon {
+    --ribbon-h: 80px;
+    font-size: 28px;
+  }
+
+  .result-sub {
+    font-size: 10.5px;
+  }
+}
+
+/* A wide phone or a small tablet: the scene framed, not to the edges.
+   The frame is the kit's carved wood (its edge only, no board), or a
+   drawn honey rim without it. */
+@media (min-width: 600px) {
+  .result-hero {
+    margin: 16px 0 0;
+  }
+
+  .result-scene {
+    border-radius: 14px;
+    box-shadow: 0 0 0 3px var(--honey-deep), 0 0 0 5px var(--bark), 0 12px 28px rgba(0, 0, 0, 0.5);
+  }
+
+  html.has-kit-panel-wood .result-scene {
+    border: 22px solid transparent;
+    border-image: var(--kit-panel-wood) 16% / 30px / 6px stretch;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.55));
+  }
+
+  html.has-kit-panel-wood .result-scene__img {
+    border-radius: 4px;
+  }
+
+  .result-scene__img {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .result-body {
+    margin-top: -26px;
+  }
+}
+
+/* A wide screen: the scene and the panel side by side, in a centred row. */
+@media (min-width: 960px) and (min-height: 560px) {
+  .result-screen {
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    column-gap: 40px;
+    align-content: center;
+    align-items: start;
+    /* A little above the middle, and the panel level with the scene's
+       top: a story scene's cut-outs stand over the lower middle of the
+       screen, and the tally stays clear of them. */
+    padding: 16px 8px 72px;
+  }
+
+  .result-hero {
+    margin: 0;
+  }
+
+  .result-banner {
+    padding-top: 14px;
+  }
+
+  .result-title.ui-ribbon {
+    --ribbon-h: 96px;
+    width: min(76%, 520px);
+    font-size: 42px;
+  }
+
+  .result-sub {
+    font-size: 14px;
+  }
+
+  .result-body {
+    margin-top: 0;
+  }
+
+  .result-screen .result-card {
+    width: 100%;
+    padding: 20px 26px 22px;
+  }
+
+  .result-screen--lost .result-body {
+    align-self: center;
+  }
+
+  .result-screen--lost .result-card {
+    padding: 26px 26px 28px;
+  }
+
+  .result-screen--lost .result-reason {
+    font-size: 23px;
+  }
+
+  .result-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .result-actions .ui-btn {
+    width: 260px;
+  }
+
+  .result-screen--bare {
+    grid-template-columns: minmax(0, 520px);
+    justify-content: center;
+    row-gap: 8px;
+  }
+
+  .result-screen--bare .result-hero {
+    padding: 0;
+  }
+}

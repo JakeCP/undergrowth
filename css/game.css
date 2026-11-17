@@ -1,0 +1,1617 @@
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('../fonts/eb-garamond.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('../fonts/eb-garamond-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* The palette (look-and-motion spec): warm greens, earth browns and
+   river blues for the animals' world, rust, steel and hazard yellow for
+   the bots, on a deep forest-green frame. The board's own colours live
+   in js/ui/patterns.js; --frame is the same green as its FRAME. */
+:root {
+  color-scheme: dark;
+  --frame: #16301f;
+  --frame-deep: #0c1d12;
+  --text: #f4efe6;
+  --cream: #f4efe6;
+  --ink: #1d2618;
+  --leaf: #3f7d3a;
+  --leaf-dark: #27501f;
+  --hazard: #f2c12e;
+  --warn: #f3a273;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0 16px 16px;
+  background: var(--frame);
+  color: var(--text);
+  font-family: 'EB Garamond', Georgia, serif;
+  touch-action: manipulation;
+}
+
+.battle-header {
+  max-width: min(100vw - 16px, 520px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.battle-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.battle-header__title {
+  margin: 12px 0 4px;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.battle-header__goal {
+  margin: 0 0 8px;
+  padding: 8px 16px 10px;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.battle-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.info-line {
+  max-width: min(100vw - 16px, 520px);
+  height: 2.8em;
+  line-height: 1.4;
+  overflow: auto;
+  margin: 0 auto 8px;
+  text-align: center;
+  font-size: 18px;
+}
+
+.board-wrap {
+  position: relative;
+  max-width: min(100vw - 16px, 520px);
+  margin: 0 auto;
+}
+
+.board-wrap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--frame-deep), 0 8px 20px rgba(0, 0, 0, 0.45);
+  touch-action: manipulation;
+}
+
+/* Battle screen.
+
+   Phone first: one column, top to bottom: the level's name with the
+   settings and Quit, the goal card and the count chips, the board, the
+   latest message, then Undo and End turn. The board shrinks on a short
+   screen so the whole column fits without scrolling. Where container
+   units work, the column is the screen's height and the board is the
+   largest square its row leaves, centred in it (see the end of this
+   block); elsewhere 236px is an estimate of the height of everything
+   that is not the board.
+
+   From 720px wide, the board is on the left and the rest becomes a
+   side panel on the right: the name, the goal and the counts, then in
+   the middle the band in focus (its card, with its actions), then the
+   log just above the buttons. The same elements serve both layouts. On
+   a tall phone the band in focus is a strip under the board.
+
+   The order of importance: the name; the goal, on the kit's parchment
+   (css/ui.css); the counts, as quiet chips; the log; then the two
+   buttons, End turn in the kit's green whenever one tap ends the turn. */
+
+.battle {
+  --board-size: max(240px, min(100%, 520px, 100vh - 236px));
+  --quiet-line: rgba(244, 239, 230, 0.24);
+  --quiet-fill: rgba(244, 239, 230, 0.07);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  --log-h: 50px;
+  --log-room: calc(var(--log-h) + 6px);
+  grid-template-areas:
+    "head"
+    "goal"
+    "board"
+    "bar";
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+@supports (height: 100dvh) {
+  .battle {
+    --board-size: max(240px, min(100%, 520px, 100dvh - 236px));
+  }
+}
+
+.battle-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding-top: max(6px, env(safe-area-inset-top));
+}
+
+.battle-head__title {
+  min-width: 0;
+  margin: 0;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+.battle-head__tools {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+/* The settings (the kit's round button) and Quit (a small plain one). */
+.battle-head__tools {
+  align-items: center;
+}
+
+/* Small drawn icons, painted in the text colour by an SVG mask. */
+.icon {
+  display: inline-block;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.icon--gear {
+  width: 22px;
+  height: 22px;
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black'%3E%3Ccircle cx='12' cy='12' r='6.3' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2.3' stroke-width='1.8'/%3E%3Cpath stroke-width='3.4' d='M18.2 12H21.6M16.4 16.4L18.8 18.8M12 18.2V21.6M7.6 16.4L5.2 18.8M5.8 12H2.4M7.6 7.6L5.2 5.2M12 5.8V2.4M16.4 7.6L18.8 5.2'/%3E%3C/svg%3E");
+}
+
+.icon--turn {
+  width: 17px;
+  height: 17px;
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 3h11M6.5 21h11M8 3c0 5 8 4.5 8 9s-8 4-8 9M16 3c0 5-8 4.5-8 9s8 4 8 9'/%3E%3Cpath d='M10 19.2h4L12 16.6Z' fill='black' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* The goal: a card of the kit's parchment with ink text, then the counts. */
+.battle-goal {
+  grid-area: goal;
+  margin: 8px 0 6px;
+}
+
+.battle-goal__card {
+  --edge: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 16px 9px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.battle-goal__label {
+  flex: none;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #5e4f33;
+}
+
+.battle-goal__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+/* A count: a painted icon and a number. */
+.battle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  font-size: 16px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  background: var(--quiet-fill);
+  border: 1px solid var(--quiet-line);
+  border-radius: 999px;
+}
+
+.battle-chip[hidden] {
+  display: none;
+}
+
+.battle-chip .ui-icon {
+  width: 20px;
+  height: 20px;
+  vertical-align: -4px;
+}
+
+.turn-label,
+.forest-label,
+.battle-goal__habitats {
+  white-space: nowrap;
+}
+
+/* The last turn of a turn-limited level. */
+.turn-label.is-last {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+/* The den count once a den is damaged or lost. */
+.battle-goal__habitats.is-down {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.battle-chip.is-down,
+.battle-chip.is-last {
+  color: var(--warn);
+  border-color: rgba(243, 162, 115, 0.7);
+}
+
+.battle .board-area {
+  grid-area: board;
+  min-width: 0;
+  min-height: 0;
+}
+
+.battle .board-wrap {
+  width: var(--board-size);
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Phone, where container units work: the column is exactly the screen's
+   height (less the body's bottom padding), the board's row takes what
+   the other rows leave, and the board is the largest square in it that
+   leaves room for the message box under it. Board and message box sit
+   together, centred in the row, so a tall phone has no dead band of
+   frame; a tall phone also shows more of the log. On a screen too short
+   even for a 240px board, the page scrolls and the bar stays in reach. */
+@supports (container-type: size) and (height: 100dvh) {
+  @media (max-width: 719px) {
+    .battle {
+      height: calc(100dvh - 16px);
+      grid-template-rows: auto auto minmax(240px, 1fr) auto;
+    }
+
+    .battle .board-area {
+      container-type: size;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .battle .board-wrap {
+      width: min(100cqw, 100cqh - var(--log-room), 520px);
+    }
+  }
+
+  @media (max-width: 719px) and (min-height: 760px) {
+    .battle {
+      --log-h: 92px;
+    }
+
+    .battle-log {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .battle-log__entry:not(:last-child),
+    .battle-log.has-note .battle-log__list {
+      display: block;
+    }
+
+    .battle-log__entry:nth-last-child(2) { opacity: 0.6; }
+    .battle-log__entry:nth-last-child(n+3) { display: none; }
+    .battle-goal {
+      margin: 10px 0 8px;
+    }
+
+    .battle-goal__card {
+      padding: 11px 18px 12px;
+      font-size: 18px;
+    }
+
+    .battle-goal__chips {
+      margin-top: 10px;
+    }
+
+    .battle-chip {
+      height: 32px;
+      font-size: 17px;
+    }
+
+    .battle .battle-bar .ui-btn {
+      --btn-h: 56px;
+    }
+  }
+}
+
+/* Messages. A phone shows them in a fixed box under the board, so the
+   board and the buttons never move: in two lines, the passing note if
+   there is one, otherwise the latest result. */
+.battle-log {
+  flex: none;
+  height: var(--log-h);
+  margin: 6px 0 0;
+  padding: 2px 0;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(244, 239, 230, 0.92);
+}
+
+.battle-log__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.battle-log__entry:not(:last-child),
+.battle-log.has-note .battle-log__list {
+  display: none;
+}
+
+.battle-log__note {
+  margin: 0;
+  font-style: italic;
+}
+
+.battle-log__start {
+  margin: 0;
+  color: rgba(244, 239, 230, 0.6);
+}
+
+.battle-log__start[hidden],
+.battle-log__keys {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .battle-log__keys {
+    display: inline;
+  }
+}
+
+/* The action pop-up, when no place beside the band leaves every tile
+   it could tap clear: on a phone it takes the message box's place. */
+.battle-dock {
+  display: none;
+  min-width: 0;
+}
+
+.battle.has-dock .battle-dock {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--log-h);
+  margin-top: 6px;
+}
+
+.battle.has-dock .battle-log {
+  display: none;
+}
+
+.battle.has-dock .battle-dock .action-popup {
+  padding: 3px;
+}
+
+/* The key for the outcome badges: a small picture and what it means. */
+.badge-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 4px;
+  font-style: normal;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.badge-key svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* Undo and End turn, right under the message. If the screen is too
+   short for the whole column, the bar stays in reach at the bottom. It
+   stacks above everything over the board (pop-up, call-outs, tip,
+   intro, settings, the end of the battle), so nothing ever covers it. */
+.battle-bar {
+  grid-area: bar;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  background: var(--frame);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.battle .battle-bar .ui-btn {
+  --btn-h: 52px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: calc(var(--btn-h) * var(--cap) + 2px);
+  padding-right: calc(var(--btn-h) * var(--cap) + 2px);
+}
+
+/* End turn, in three states that never look alike (js/ui/turn-state.js):
+   plain wood while a tap would ask first, because a band has done
+   nothing yet; the kit's green main button whenever one tap ends the
+   turn (Continue always has it); and, while it asks, the green with its
+   words in hazard yellow and a hazard glow breathing round it. */
+.battle .battle-bar .end-btn {
+  flex: 2 1 0;
+  letter-spacing: 0.04em;
+}
+
+.battle .battle-bar .end-btn.is-asking {
+  /* Its longer words keep off the painted leaves even at 360px wide. */
+  font-size: 17px;
+  letter-spacing: 0;
+  color: var(--hazard);
+}
+
+.battle .battle-bar .end-btn.is-asking::after {
+  content: '';
+  position: absolute;
+  inset: -5px -3px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px var(--hazard), 0 0 14px 2px rgba(242, 193, 46, 0.7);
+  pointer-events: none;
+  animation: ug-asking 1100ms ease-in-out infinite;
+}
+
+@keyframes ug-asking {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* The bands that have done nothing yet (js/ui/turn-state.js
+   bandsWaiting), counted on a small badge at the button's top edge, ink
+   in the bright ring the board puts round each of them: the reason End
+   turn will ask first, and is asking. */
+.battle .battle-bar .end-btn[data-waiting]::before {
+  content: attr(data-waiting);
+  position: absolute;
+  top: -8px;
+  right: calc(var(--btn-h) * var(--cap) - 4px);
+  z-index: 1;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  font: 700 12px/18px system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-align: center;
+  text-shadow: none;
+  color: var(--cream);
+  background: var(--ink);
+  border: 2px solid #d6f77a;
+  border-radius: 999px;
+  box-shadow: 0 2px 3px rgba(12, 29, 18, 0.6);
+  pointer-events: none;
+}
+
+/* While it asks, the words take the room: Enter is still the key. */
+.battle .battle-bar .end-btn.is-asking .key-hint {
+  display: none;
+}
+
+.battle-bar__label {
+  flex: 1 1 auto;
+  font-size: 18px;
+  text-shadow: 0 1px 4px rgba(12, 29, 18, 0.8);
+}
+
+/* Key hints on the buttons, only where there is a mouse and keyboard. */
+.key-hint {
+  display: none;
+  margin-left: 8px;
+  padding: 0 5px;
+  font: 600 11px/17px system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  vertical-align: 2px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.62;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .key-hint {
+    display: inline-block;
+  }
+}
+
+/* What the keyboard has selected: a ring in hazard yellow, as on the
+   scene's Skip and the map's places, standing a little off the button.
+   Only for the keyboard's focus: a click or a tap leaves no ring. */
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid var(--hazard);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible),
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* A button the keyboard moves to is brought into view with its ring. */
+button {
+  scroll-margin: 24px;
+}
+
+/* The keyboard's tile cursor over the board. */
+.board-cursor {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  border: 3px solid var(--hazard);
+  border-radius: 7px;
+  box-shadow: 0 0 0 2px rgba(29, 38, 24, 0.85), inset 0 0 0 1.5px rgba(29, 38, 24, 0.85);
+}
+
+.board-cursor[hidden] {
+  display: none;
+}
+
+/* The list of keys ("?"), over the board, on the kit's wood. A tap on
+   it closes it. */
+.battle-keys {
+  --edge: 24px;
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  width: min(94%, 360px);
+  height: fit-content;
+  margin: auto;
+  padding: 18px 30px 20px;
+  cursor: pointer;
+}
+
+/* On every other screen, in the middle of the window. */
+.battle-keys--screen {
+  position: fixed;
+  z-index: 40;
+}
+
+.battle-keys__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.battle-keys__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.battle-keys__key {
+  font: 600 13px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--hazard);
+  white-space: nowrap;
+}
+
+.battle-keys__does {
+  margin: 0;
+}
+
+/* The actions 1 to 9 choose, each with its emblem. */
+.battle-keys__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 4px;
+}
+
+.battle-keys__action {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* The turn banner (js/ui/turn-banner.js): "Turn 3 · Your turn", a short
+   flash across the top of the board at the start of each side's turn.
+   It never takes a tap. Under reduced motion or at instant bot speed it
+   is a plain, smaller line that does not move. */
+.turn-banner {
+  position: absolute;
+  z-index: 7;
+  top: 9%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* The words on the kit's ribbon (css/ui.css). */
+.turn-banner__text {
+  --ribbon-h: 48px;
+  font-size: 22px;
+}
+
+/* The still line: the same ribbon, smaller. */
+.turn-banner--line .turn-banner__text {
+  --ribbon-h: 36px;
+  font-size: 16px;
+}
+
+/* A call-out over the board ("Den damaged!"). The box is placed at the
+   top centre of its tile by the player and centred here; the text inside
+   is what animates. It never takes a tap. */
+.board-callout {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -85%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.board-callout__text {
+  display: inline-block;
+  padding: 2px 9px 3px;
+  font-size: 17px;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--hazard);
+  border: 1.5px solid var(--ink);
+  border-radius: 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* The action pop-up, placed beside the selected band by placePopup in
+   js/ui/battle-view.js (left and top are set there, in pixels): a slip of
+   the kit's parchment holding the actions as small buttons with their
+   emblems, the chosen one green. Off the board (.is-docked) it sits in
+   the dock, named. */
+.action-popup {
+  --edge: 10px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  padding: 7px 8px;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.action-popup .ui-btn {
+  --btn-h: 44px;
+  padding-left: calc(var(--btn-h) * var(--cap) + 2px);
+  padding-right: calc(var(--btn-h) * var(--cap) + 2px);
+}
+
+.action-popup__who {
+  display: none;
+}
+
+.action-popup.is-docked {
+  position: static;
+  max-width: 100%;
+}
+
+.action-popup.is-docked .action-popup__who {
+  display: block;
+  padding: 0 4px 0 6px;
+  font-size: 16px;
+}
+
+/* A small arrow on the edge that faces the band, of the same paper.
+   --arrow is how far along that edge the band's head is. Shown only when
+   the head is alongside the pop-up. */
+.action-popup__arrow {
+  display: none;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--parchment, var(--cream));
+  border: 1.5px solid transparent;
+  transform: rotate(45deg);
+}
+
+.action-popup.has-arrow .action-popup__arrow {
+  display: block;
+}
+
+.action-popup[data-side="N"] .action-popup__arrow {
+  bottom: -6.5px;
+  left: calc(var(--arrow, 50%) - 5px);
+  border-top-color: transparent;
+  border-left-color: transparent;
+}
+
+.action-popup[data-side="S"] .action-popup__arrow {
+  top: -6.5px;
+  left: calc(var(--arrow, 50%) - 5px);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.action-popup[data-side="E"] .action-popup__arrow {
+  top: calc(var(--arrow, 50%) - 5px);
+  left: -6.5px;
+  border-top-color: transparent;
+  border-right-color: transparent;
+}
+
+.action-popup[data-side="W"] .action-popup__arrow {
+  top: calc(var(--arrow, 50%) - 5px);
+  right: -6.5px;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+
+/* The settings panel, opened from the header: over the top right of the
+   board, never over the bar, on the kit's wood. */
+.battle-settings {
+  --edge: 24px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 8;
+  max-width: calc(100% - 16px);
+  padding: 18px 30px 20px;
+}
+
+.battle-settings__label {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.battle-settings__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.battle-settings__row + .battle-settings__row {
+  margin-top: 8px;
+}
+
+.battle-settings .ui-btn {
+  padding-left: calc(var(--btn-h) * var(--cap) + 2px);
+  padding-right: calc(var(--btn-h) * var(--cap) + 2px);
+}
+
+/* The end of the battle, over the board only: the victory banner with
+   the seed count, or the defeat's dim, the marks on what was lost and
+   the words. Call-outs stay above it. */
+.board-finale {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.board-dim {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: rgba(12, 29, 18, 0.66);
+}
+
+.board-mark {
+  position: absolute;
+  border: 3px solid var(--warn);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.board-mark::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--warn);
+  border-radius: 50%;
+  animation: ug-mark 1400ms ease-in-out infinite;
+}
+
+@keyframes ug-mark {
+  0%, 100% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+}
+
+/* The ribbon over the board and the words under it: css/result.css. */
+
+@media (min-width: 720px) {
+  .battle {
+    --panel: 300px;
+    --board-size: max(280px, min(100vw - 88px - var(--panel), 100vh - 32px, 760px));
+    grid-template-columns: var(--board-size) var(--panel);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "board head"
+      "board goal"
+      "board focus"
+      "board log"
+      "board dock"
+      "board bar";
+    column-gap: 28px;
+    justify-content: center;
+    max-width: none;
+    padding-top: 16px;
+  }
+
+  /* The board's cell gives way: the board, the log and the dock are
+     each placed in the grid. */
+  .battle .board-area {
+    display: contents;
+  }
+
+  .battle .board-wrap {
+    grid-area: board;
+    align-self: start;
+    margin: 0;
+  }
+
+  .battle-log {
+    grid-area: log;
+  }
+
+  .battle-head {
+    align-items: flex-start;
+    padding-top: 0;
+  }
+
+  .battle-head__title {
+    margin-top: 4px;
+    font-size: 27px;
+  }
+
+  .battle-goal {
+    margin: 14px 0 0;
+  }
+
+  .battle-goal__card {
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 18px 14px;
+    font-size: 19px;
+  }
+
+  .battle-goal__chips {
+    margin-top: 10px;
+  }
+
+  /* The log, just above the buttons, in the room the card leaves: the
+     newest line first and clear, the older ones fading under it, in a
+     box no taller than about six lines that cuts the oldest off, so it
+     never pushes the card or the buttons around. The passing note (what a tap does, what a hovered
+     target would do) sits at its foot, over the buttons. */
+  .battle-log {
+    display: flex;
+    flex-direction: column;
+    align-self: end;
+    height: auto;
+    max-height: 9.6em;
+    min-height: 0;
+    margin: 14px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--quiet-line);
+    font-size: 16px;
+    line-height: 1.35;
+    text-align: left;
+  }
+
+  .battle-log:not(.has-note):not(:has(.battle-log__entry)) {
+    display: none;
+  }
+
+  .battle-log__list {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .battle-log.has-note .battle-log__list {
+    display: flex;
+  }
+
+  .battle-log__entry,
+  .battle-log__entry:not(:last-child) {
+    display: block;
+    flex: none;
+    margin-bottom: 6px;
+  }
+
+  .battle-log__entry:nth-last-child(2) { opacity: 0.7; }
+  .battle-log__entry:nth-last-child(3) { opacity: 0.5; }
+  .battle-log__entry:nth-last-child(4) { opacity: 0.36; }
+  .battle-log__entry:nth-last-child(n+5) { opacity: 0.25; }
+
+  .battle-log__note {
+    flex: none;
+    margin-top: auto;
+    padding-top: 10px;
+    color: #e3d98a;
+  }
+
+  .battle-log__note:empty {
+    display: none;
+  }
+
+  .battle-log__start {
+    flex: none;
+    margin-top: 0;
+  }
+
+  .badge-key {
+    margin: 0 8px 0 0;
+    color: var(--cream);
+  }
+
+  /* Off the board, the pop-up sits in the panel, over the buttons. */
+  .battle-dock {
+    grid-area: dock;
+  }
+
+  .battle.has-dock .battle-dock {
+    justify-content: flex-start;
+    height: auto;
+    margin-top: 12px;
+  }
+
+  .battle.has-dock .battle-log {
+    display: flex;
+  }
+
+  .battle.has-dock .battle-dock .action-popup {
+    padding: 6px;
+  }
+
+  .battle-bar {
+    position: static;
+    align-self: end;
+    flex-wrap: wrap;
+    padding: 14px 0 0;
+  }
+
+  .battle-bar__label {
+    flex-basis: 100%;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (min-width: 720px) {
+    .battle {
+      --board-size: max(280px, min(100vw - 88px - var(--panel), 100dvh - 32px, 760px));
+    }
+  }
+}
+
+/* The band in focus (js/ui/battle-focus.js), drawn by focusCard in
+   js/ui/battle-view.js: on a wide screen the middle of the side panel, on
+   a tall phone a strip between the board and the bar (.has-strip, set by
+   phoneStrip from the room the board's cell has). A shorter phone keeps
+   only the one-line message under the board, so the card is hidden.
+
+   The card is the kit's wood (css/ui.css): the band's portrait standing
+   at its left, a little above its top edge (on a phone, its head in a
+   round window), its name with its length on the board's own dark pill,
+   the speed and length pips, and what it has left this turn, marked as
+   the board marks it. Then, for one of the player's bands, its actions:
+   while it is selected, the pop-up's own buttons with their number keys,
+   the chosen or offered one green; else a plain list. For a bot, its plan
+   in one plain line. With nothing in focus, a quiet prompt. */
+.battle-focus {
+  display: none;
+  min-width: 0;
+}
+
+.battle-focus__prompt {
+  margin: 0;
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.35;
+  color: rgba(244, 239, 230, 0.62);
+}
+
+.battle-focus__card {
+  --edge: 18px;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 12px 22px 16px;
+}
+
+.battle-focus__figure {
+  grid-row: 1;
+  grid-column: 1;
+  width: 98px;
+  height: 98px;
+  margin: -38px 0 -4px -6px;
+}
+
+/* A still picture, so a drop shadow is no live filter on anything that moves. */
+.battle-focus__art,
+.battle-focus__stamp {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 3px rgba(12, 29, 18, 0.6));
+}
+
+.battle-focus__head {
+  display: none;
+}
+
+.battle-focus__who {
+  grid-row: 1;
+  grid-column: 2;
+  min-width: 0;
+}
+
+.battle-focus__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+/* The length on the dark pill the board's heads carry it on. */
+.battle-focus__length {
+  padding: 0 7px;
+  font: 700 12px/18px system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--cream);
+  background: var(--ink);
+  border: 1px solid rgba(244, 239, 230, 0.7);
+  border-radius: 999px;
+}
+
+.battle-focus__marks {
+  margin: 7px 0 0;
+}
+
+.battle-focus__marks-drawn {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.battle-focus__mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.battle-focus__mark-label {
+  flex: none;
+  width: 4.6em;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 230, 0.7);
+}
+
+.battle-focus__dots {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A chain's dots are linked by a line behind them, from the first to the last. */
+.battle-focus__dots--chain {
+  gap: 5px;
+  background: linear-gradient(var(--honey), var(--honey)) center / calc(100% - 10px) 2px no-repeat;
+}
+
+.battle-focus__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--wood-board);
+  border: 1.5px solid var(--honey);
+  border-radius: 50%;
+}
+
+.battle-focus__dot.is-filled {
+  background: var(--honey);
+}
+
+/* What it has left, with the board's own mark before it: the bright ring
+   for ready, the hairline for "can still act", a dim disc for done, the
+   dashes for trapped. */
+.battle-focus__status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.25;
+}
+
+.battle-focus__status::before {
+  content: '';
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2.5px solid #d6f77a;
+  border-radius: 50%;
+}
+
+.battle-focus__status[data-status="canAct"]::before {
+  border-width: 1.2px;
+}
+
+.battle-focus__status[data-status="done"] {
+  color: rgba(244, 239, 230, 0.66);
+}
+
+.battle-focus__status[data-status="done"]::before {
+  background: rgba(244, 239, 230, 0.35);
+  border: 0;
+}
+
+.battle-focus__status[data-status="trapped"]::before {
+  border: 1.5px dashed var(--cream);
+}
+
+/* The actions: the pop-up's buttons, full width, emblem first, key last. */
+.battle-focus__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.battle-focus .battle-focus__choose {
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: calc(var(--btn-h) * var(--cap) + 4px);
+  padding-right: calc(var(--btn-h) * var(--cap) + 2px);
+}
+
+.battle-focus__choose .key-hint {
+  margin-left: auto;
+}
+
+.battle-focus__action.is-plain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 17px;
+  color: rgba(244, 239, 230, 0.75);
+}
+
+.battle-focus__action.is-plain.is-active {
+  color: var(--cream);
+}
+
+.battle-focus__hint {
+  grid-column: 1 / -1;
+  margin: 12px 0 0;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.3;
+  color: #e3d98a;
+}
+
+.battle-focus__plan {
+  grid-column: 1 / -1;
+  margin: 14px 0 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.battle-focus__plan-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 230, 0.7);
+}
+
+@media (min-width: 720px) {
+  /* The card keeps its whole height; the log gives way to it. */
+  .battle-focus {
+    display: block;
+    grid-area: focus;
+    padding-top: 46px;
+  }
+
+  .battle-focus[data-kind="none"] {
+    padding-top: 20px;
+  }
+}
+
+/* The phone's strip: one row of the same card, its head in a round
+   window, the name and pips beside it, then what it has left or what a
+   bot plans. Its height is fixed (--strip-h, from js/ui/battle-focus.js),
+   so the board never moves under a tap. */
+@supports (container-type: size) and (height: 100dvh) {
+  @media (max-width: 719px) {
+    .battle.has-strip .battle-focus {
+      display: flex;
+      flex: none;
+      flex-direction: column;
+      justify-content: center;
+      height: var(--strip-h);
+      margin-top: 6px;
+    }
+
+    .battle.has-strip .battle-focus__prompt {
+      text-align: center;
+    }
+
+    /* Once the battle is over the strip is put away, and the message box
+       under it takes its room, so the verdict sits right under the board
+       and the board does not move (the column keeps its height). */
+    .battle.has-strip .battle-focus.is-over {
+      display: none;
+    }
+
+    .battle.has-strip .battle-focus.is-over + .battle-log {
+      max-height: calc(92px + var(--strip-h) + 6px);
+    }
+
+    /* The message box under the strip takes what room is left, up to the
+       tall phone's four lines, and shows the latest two results. */
+    .battle.has-strip .battle-log {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: var(--log-h);
+      max-height: 92px;
+    }
+
+    .battle.has-strip .battle-log__entry:nth-last-child(2) {
+      display: block;
+      opacity: 0.6;
+    }
+
+    .battle.has-strip .battle-focus__card {
+      --edge: 16px;
+      grid-template-columns: 52px minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      align-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 5px 20px 6px 16px;
+    }
+
+    .battle.has-strip .battle-focus__figure {
+      grid-row: 1 / span 2;
+      width: 52px;
+      height: 52px;
+      margin: 0;
+    }
+
+    .battle.has-strip .battle-focus__art {
+      display: none;
+    }
+
+    .battle.has-strip .battle-focus__stamp {
+      filter: none;
+    }
+
+    .battle.has-strip .battle-focus__head {
+      position: relative;
+      display: block;
+      width: 52px;
+      height: 52px;
+      overflow: hidden;
+      background: radial-gradient(circle at 40% 35%, #4b7b3c, var(--wood-board) 75%);
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 2px var(--honey), 0 2px 4px rgba(12, 29, 18, 0.6);
+    }
+
+    .battle.has-strip .battle-focus__card--bot .battle-focus__head {
+      background: radial-gradient(circle at 40% 35%, #c9774f, #6e2d12 80%);
+    }
+
+    .battle.has-strip .battle-focus__face {
+      position: absolute;
+      max-width: none;
+      height: auto;
+    }
+
+    .battle.has-strip .battle-focus__who {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 3px 10px;
+    }
+
+    .battle.has-strip .battle-focus__name {
+      flex-wrap: nowrap;
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    .battle.has-strip .battle-focus__marks {
+      margin: 0;
+    }
+
+    .battle.has-strip .battle-focus__marks-drawn {
+      flex-direction: row;
+      gap: 10px;
+    }
+
+    .battle.has-strip .battle-focus__mark-label {
+      display: none;
+    }
+
+    .battle.has-strip .battle-focus__dot {
+      width: 8px;
+      height: 8px;
+    }
+
+    .battle.has-strip .battle-focus__dots--chain {
+      gap: 4px;
+      background-size: calc(100% - 8px) 2px;
+    }
+
+    .battle.has-strip .battle-focus__status {
+      grid-row: 2;
+      grid-column: 2;
+      margin: 1px 0 0;
+      font-size: 15px;
+    }
+
+    /* A bot's plan has up to three lines: the longest ("will walk 2
+       tiles, then tear into the den ..., and lose 1 to its spines") fits. */
+    .battle.has-strip .battle-focus__plan {
+      grid-row: 2;
+      grid-column: 2;
+      display: -webkit-box;
+      margin: 1px 0 0;
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.15;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+    }
+
+    .battle.has-strip .battle-focus__plan-label,
+    .battle.has-strip .battle-focus__actions {
+      display: none;
+    }
+
+    /* What a tap does now, when there is something to say, in the place
+       of what the band has left: the strip has one line for either. */
+    .battle.has-strip .battle-focus__hint {
+      grid-row: 2;
+      grid-column: 2;
+      margin: 1px 0 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .battle.has-strip .battle-focus__card:has(.battle-focus__hint) .battle-focus__status {
+      display: none;
+    }
+  }
+}
+
+/* Campaign screens (map, deploy, shop, result) */
+
+.screen {
+  max-width: min(100vw - 16px, 520px);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.screen-title {
+  margin: 12px 0 8px;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.seeds {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.screen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+/* The painted icons for seeds, dens and forest (js/ui/icons.js), set
+   in a line of text at the height of its letters. */
+.ui-icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.ui-icon--emoji {
+  width: auto;
+  height: auto;
+  vertical-align: baseline;
+}
+
+/* Map: the layout of the scrolling column is in css/map.css. */
+
+.map-node-btn {
+  position: absolute;
+  min-width: 44px;
+  min-height: 44px;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+.map-panel {
+  text-align: center;
+}
+
+.map-hint {
+  font-size: 18px;
+  margin: 4px 0;
+}
+
+.map-panel__name {
+  margin: 4px 0 2px;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.map-panel__goal {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+/* Deploy: css/menus.css. */
+
+/* Shop */
+
+.shop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* The result screen: css/result.css. */
+
+/* The board's idle life (look-and-motion spec): the bands' marching
+   wobble, the water ripple, the pulse on a den a bot is aiming at, and
+   the smoke over a damaged den. Transform and opacity only, set by
+   js/ui/board.js with a negative animation-delay so a redraw does not
+   restart them. All of it stops under reduced motion; the pulse ring and
+   the smoke then simply stay drawn. */
+
+.ug-wobble {
+  animation: ug-march 1400ms ease-in-out infinite;
+}
+
+@keyframes ug-march {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0, -1.2px); }
+}
+
+.ug-ripple {
+  animation: ug-ripple 4200ms ease-in-out infinite;
+}
+
+@keyframes ug-ripple {
+  0%, 100% { transform: translate(-1.5px, 0); opacity: 0.35; }
+  50% { transform: translate(1.5px, 0); opacity: 0.8; }
+}
+
+.ug-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ug-pulse 1100ms ease-in-out infinite;
+}
+
+@keyframes ug-pulse {
+  0%, 100% { transform: scale(0.92); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.35; }
+}
+
+.ug-smoke {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ug-smoke 3000ms ease-out infinite;
+}
+
+@keyframes ug-smoke {
+  0% { transform: translate(0, 1px); opacity: 0; }
+  30% { opacity: 0.8; }
+  100% { transform: translate(0, -4px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ug-wobble,
+  .ug-ripple,
+  .ug-pulse,
+  .ug-smoke,
+  .board-mark::after {
+    animation: none;
+  }
+}

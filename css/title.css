@@ -1,0 +1,306 @@
+/* The title screen (js/ui/title-view.js). Loaded after game.css.
+   Colours are the game's palette from js/ui/patterns.js: FRAME
+   #16301f, its deep shade #0c1d12 (--frame-deep in game.css),
+   FOREST_SHADE #2c5a30, FOREST_FLOOR #4c8440, DEN_GLOW #f3c766,
+   CREAM #f4efe6, INK #1d2618.
+
+   Phone first: the screen fills the viewport, the name sits in the
+   upper third where the scene is calmest, and the buttons sit at
+   the bottom within one thumb's reach, each at least 44px tall.
+
+   Animation is transform and opacity only: a very slow drift and
+   zoom of the scene, a smaller opposite drift of the cast, a gentle
+   sway of the foliage, rising motes, the title fading up, and a soft
+   pulse on the main button. Under prefers-reduced-motion — and on a
+   screen the view marks .is-still — everything is still. */
+
+.title-screen {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0c1d12;
+  color: var(--cream);
+  font-family: 'EB Garamond', Georgia, serif;
+}
+
+.title-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.title-layer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The scene fills the screen; on a wide screen the tall scene is
+   cropped to cover, and the slow zoom keeps the crop edges hidden. */
+.title-scene img {
+  object-fit: cover;
+  transform: scale(1.08);
+  animation: title-scene-drift 48s ease-in-out infinite alternate;
+}
+
+/* No scene file: a code-drawn gradient in the game's palette, deep
+   frame-green at the top down to forest floor, with a warm den-glow
+   low on the horizon. */
+.title-scene--gradient {
+  background:
+    radial-gradient(ellipse 90% 45% at 50% 78%, rgba(243, 199, 102, 0.28), transparent 70%),
+    linear-gradient(180deg, #0c1d12 0%, #16301f 38%, #2c5a30 72%, #4c8440 100%);
+}
+
+/* Where the scene image lands on the screen. The scene is drawn to
+   cover, so its drawn size depends on the screen's shape; these give
+   that size and the image's top-left corner, in units of the title
+   screen itself (a size container). --scene-a is the image's width
+   over its height: the tall scene by default, the 16:9 scene on a
+   landscape screen, matching the choice js/ui/title-view.js makes. */
+.title-screen {
+  container-type: size;
+}
+
+.title-layer {
+  --scene-a: 0.6664;
+  --scene-w: max(100cqw, 100cqh * var(--scene-a));
+  --scene-h: max(100cqh, 100cqw / var(--scene-a));
+  --scene-x: calc((100cqw - var(--scene-w)) / 2);
+  --scene-y: calc((100cqh - var(--scene-h)) / 2);
+}
+
+@media (orientation: landscape) {
+  .title-layer {
+    --scene-a: 1.7778;
+  }
+}
+
+/* The cast stands whole, feet on the mossy bank, looking out at the
+   cleared field. They are pinned to a spot IN THE PAINTING, not on the
+   screen: --cast-u and --cast-v are where their feet stand as fractions
+   of the scene image, and --cast-h is their height as a fraction of the
+   image's height. The layer then takes exactly the scene's own slow
+   zoom and drift, about the same centre, so the pair never slide over
+   the ground. A soft shadow under the feet and a little less colour
+   seat them in the painted light. */
+.title-cast {
+  --cast-u: 0.225;
+  --cast-v: 0.835;
+  --cast-h: 0.235;
+  --cast-height: calc(var(--cast-h) * var(--scene-h));
+  --cast-left: calc(var(--scene-x) + var(--cast-u) * var(--scene-w) - var(--cast-height) * 0.75);
+  --cast-top: calc(var(--scene-y) + var(--cast-v) * var(--scene-h) - var(--cast-height));
+  inset: auto;
+  left: var(--cast-left);
+  top: var(--cast-top);
+  height: var(--cast-height);
+  aspect-ratio: 3 / 2;
+  isolation: isolate;
+  transform-origin: calc(50cqw - var(--cast-left)) calc(50cqh - var(--cast-top));
+  transform: scale(1.08);
+  animation: title-planted-drift 48s ease-in-out infinite alternate;
+}
+
+/* The tall scene: the bank is nearer the middle, and the pair are a
+   smaller part of a taller picture. */
+@media (orientation: portrait) {
+  .title-cast {
+    --cast-u: 0.405;
+    --cast-v: 0.85;
+    --cast-h: 0.19;
+  }
+}
+
+.title-cast::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 6%;
+  right: 4%;
+  bottom: -5%;
+  height: 13%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(22, 34, 16, 0.5), rgba(22, 34, 16, 0.22) 45%, transparent 72%);
+}
+
+.title-cast img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  filter: saturate(0.8) sepia(0.16) brightness(0.97);
+}
+
+/* The foliage is a clump in the bottom-left corner, nearest the eye
+   and in front of the cast's feet. It is sized by the screen's height,
+   never stretched to the width, and sways very gently from its roots. */
+.title-foreground {
+  top: auto;
+  right: auto;
+  left: -4%;
+  bottom: -4%;
+  height: 62%;
+  aspect-ratio: 853 / 1280;
+}
+
+@media (orientation: portrait) {
+  .title-foreground {
+    height: 48%;
+  }
+}
+
+.title-foreground img {
+  object-fit: contain;
+  object-position: 0% 100%;
+  transform-origin: 20% 100%;
+  animation: title-foliage-sway 9s ease-in-out infinite alternate;
+}
+
+.title-motes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.title-mote {
+  position: absolute;
+  bottom: -4vh;
+  border-radius: 50%;
+  background: #f3c766;
+  animation: title-mote-rise 16s linear infinite;
+}
+
+.title-heading {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 15%;
+  padding: 0 20px;
+  text-align: center;
+  pointer-events: none;
+  animation: title-fade-up 1.2s ease-out both;
+}
+
+/* The name is set in deep forest ink on the pale morning sky, with a
+   soft light halo so it also holds over leaves at the screen's edge.
+   A short rule under it finishes the block. */
+.title-name {
+  display: inline-block;
+  margin: 0;
+  font-size: clamp(42px, 12vw, 104px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.035em;
+  color: #1c3a22;
+  text-shadow:
+    0 0 28px rgba(255, 244, 222, 0.95),
+    0 0 10px rgba(255, 244, 222, 0.75),
+    0 1px 0 rgba(255, 250, 236, 0.55);
+}
+
+.title-name::after {
+  content: '';
+  display: block;
+  width: 38%;
+  height: 1px;
+  margin: 0.2em auto 0;
+  background: linear-gradient(90deg, transparent, rgba(28, 58, 34, 0.6) 20%, rgba(28, 58, 34, 0.6) 80%, transparent);
+}
+
+.title-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 20px calc(22px + env(safe-area-inset-bottom));
+}
+
+/* Begin (or Continue) is the kit's main button (css/ui.css), set large
+   and in capitals, fading up and then breathing gently; the sound
+   toggle is a small plain one in the top corner. */
+.title-start {
+  min-width: 210px;
+  font-size: 20px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  animation:
+    title-fade-up 0.9s ease-out 0.3s both,
+    title-button-pulse 2.8s ease-in-out 1.4s infinite;
+}
+
+/* The pulse is the button's own transform: while it is pressed or under
+   the mouse it stops, so the kit's push and lift show. */
+.title-start:active,
+.title-start:hover {
+  animation: none;
+}
+
+.title-controls .title-sound {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+}
+
+.title-sound::before {
+  content: '\266A';
+  margin-right: 2px;
+}
+
+@media (orientation: portrait) {
+  .title-heading {
+    top: 17%;
+  }
+}
+
+@keyframes title-scene-drift {
+  from { transform: scale(1.08) translate(0, 0); }
+  to { transform: scale(1.16) translate(-1.5%, -2%); }
+}
+
+/* The scene's own drift, for a layer that is not the full screen: the
+   same scale, and the same shift written in the screen's units. */
+@keyframes title-planted-drift {
+  from { transform: scale(1.08) translate(0, 0); }
+  to { transform: scale(1.16) translate(-1.5cqw, -2cqh); }
+}
+
+@keyframes title-foliage-sway {
+  from { transform: rotate(-0.35deg); }
+  to { transform: rotate(0.35deg); }
+}
+
+@keyframes title-mote-rise {
+  from { transform: translateY(0); }
+  to { transform: translateY(-88vh); }
+}
+
+@keyframes title-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes title-button-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+.title-screen.is-still .title-cast,
+.title-screen.is-still .title-layer img,
+.title-screen.is-still .title-mote,
+.title-screen.is-still .title-heading,
+.title-screen.is-still .title-controls,
+.title-screen.is-still .title-start {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-screen .title-cast,
+  .title-screen .title-layer img,
+  .title-screen .title-mote,
+  .title-screen .title-heading,
+  .title-screen .title-controls,
+  .title-screen .title-start {
+    animation: none;
+  }
+}

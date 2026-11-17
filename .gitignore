@@ -1,0 +1,21 @@
+node_modules/
+.DS_Store
+.superpowers/
+assets/textures/*.png
+assets/portraits/*.png
+assets/title/*.png
+assets/title/*-source.*
+assets/title/*.wav
+assets/title/*.aiff
+assets/title/*.flac
+assets/title/*.ogg
+assets/title/*.m4a
+assets/map/*.png
+assets/map/markers/*.png
+assets/ui/*.png
+assets/shop/*.png
+assets/board/*.png
+assets/ui/alternates/
+
+# Art-generation prompts stay in the private dev repo
+docs/art/*-prompts.md

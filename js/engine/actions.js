@@ -1,0 +1,179 @@
+/** @typedef {import('./types.js').Pos} Pos */
+/** @typedef {import('./types.js').Tile} Tile */
+/** @typedef {import('./types.js').Band} Band */
+/** @typedef {import('./types.js').BattleState} BattleState */
+/** @typedef {import('./types.js').ActionDef} ActionDef */
+
+import { DIR_ORDER, DIRS, add, eq, inBounds, dirBetween } from './grid.js';
+import { dig, build, mow, pave, cut, isDeadly, isHabitat, strikeHabitat } from './terrain.js';
+import { bandById, occupantAt, damageBand, pushBand } from './band.js';
+import { actionsFor, BAND_TYPES } from './units.js';
+
+/**
+ * @param {Band} band
+ * @param {string} actionId
+ * @returns {ActionDef|undefined}
+ */
+export function findAction(band, actionId) {
+  return actionsFor(band.type, band.maxLen).find((a) => a.id === actionId);
+}
+
+/**
+ * @param {BattleState} state
+ * @param {string} bandId
+ * @param {string} actionId
+ * @returns {Pos[]}
+ */
+export function actionTargets(state, bandId, actionId) {
+  /** @type {Pos[]} */
+  const result = [];
+  const band = bandById(state, bandId);
+  if (band === undefined || band.cells.length === 0) return result;
+  const action = findAction(band, actionId);
+  if (action === undefined) return result;
+  const head = band.cells[0];
+
+  for (const dir of DIR_ORDER) {
+    const d = DIRS[dir];
+    for (let dist = action.minRange; dist <= action.maxRange; dist += 1) {
+      /** @type {Pos} */
+      const offset = [d[0] * dist, d[1] * dist];
+      const pos = add(head, offset);
+      if (!inBounds(state, pos)) continue;
+      const tile = state.tiles[pos[1]][pos[0]];
+      if (action.effect === 'dig') {
+        if (dig(tile) === null) continue;
+        if (occupantAt(state, pos) !== undefined) continue;
+        if (state.objectives.some((o) => eq(o.at, pos))) continue;
+        if (state.pickups.some((p) => eq(p, pos))) continue;
+      } else if (action.effect === 'build') {
+        if (build(tile) === null) continue;
+        if (occupantAt(state, pos) !== undefined) continue;
+      } else if (action.effect === 'attack' && action.pattern === 'single') {
+        const occupant = occupantAt(state, pos);
+        if (occupant === undefined) continue;
+        if (occupant.side === band.side) continue;
+      }
+      result.push(pos);
+    }
+  }
+  return result;
+}
+
+/**
+ * @param {BattleState} state
+ * @param {Pos} at
+ * @param {(tile: Tile) => Tile|null} transform
+ * @param {string} cause
+ * @returns {void}
+ */
+function applyTransform(state, at, transform, cause) {
+  if (!inBounds(state, at)) return;
+  const tile = state.tiles[at[1]][at[0]];
+  const next = transform(tile);
+  if (next === null) return;
+  state.tiles[at[1]][at[0]] = next;
+  /** @type {Pos} */
+  const atCopy = [at[0], at[1]];
+  state.events.push({ kind: 'terrain', at: atCopy, from: tile.kind, to: next.kind, cause });
+  const occupant = occupantAt(state, at);
+  if (occupant !== undefined) {
+    const flies = BAND_TYPES[occupant.type].flies;
+    if (isDeadly(next, flies)) {
+      const occupantId = occupant.id;
+      const remaining = occupant.cells.length;
+      damageBand(state, occupantId, remaining);
+      state.events.push({
+        kind: 'push',
+        outcome: { kind: 'falls', band: occupantId, at: [atCopy[0], atCopy[1]], cause: 'terrain' },
+      });
+    }
+  }
+}
+
+/**
+ * Emits an 'action' event, then the action's effects.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {ActionDef} action
+ * @param {Pos} target
+ * @returns {void}
+ */
+export function resolveAction(state, band, action, target) {
+  if (band.cells.length === 0) return;
+  state.events.push({
+    kind: 'action',
+    actor: band.id,
+    actionId: action.id,
+    from: [band.cells[0][0], band.cells[0][1]],
+    target: [target[0], target[1]],
+  });
+
+  if (action.effect === 'dig') {
+    applyTransform(state, target, dig, action.id);
+    return;
+  }
+  if (action.effect === 'build') {
+    applyTransform(state, target, build, action.id);
+    return;
+  }
+  if (action.effect === 'mow' || action.effect === 'saw' || action.effect === 'pave') {
+    // A strike on a band hits the band only. The tile under it is
+    // untouched, so a band on a den shields it and a dam under a band
+    // holds. Terrain is struck only when nobody stands on it.
+    const occupant = occupantAt(state, target);
+    if (occupant !== undefined) {
+      // Bristle: a bot that strikes a bristly band is hurt by it, even
+      // when the strike wipes the band out. Only these three effects are
+      // bot strikes, so an animal's bite never sets it off.
+      const bristle = BAND_TYPES[occupant.type].bristle ?? 0;
+      damageBand(state, occupant.id, action.damage);
+      if (bristle > 0 && bandById(state, band.id) !== undefined) {
+        damageBand(state, band.id, bristle);
+      }
+      return;
+    }
+    applyTransform(state, target, (tile) => {
+      if (isHabitat(tile)) return strikeHabitat(tile);
+      if (tile.kind === 'dam') return cut(tile);
+      if (action.effect === 'mow') return mow(tile);
+      if (action.effect === 'pave') return pave(tile);
+      return null;
+    }, action.id);
+    return;
+  }
+
+  // attack
+  const head = band.cells[0];
+
+  if (action.pattern === 'line3') {
+    const dir = dirBetween(head, target);
+    if (dir === null) return;
+    /** @type {string[]} */
+    const ids = [];
+    /** @type {Pos} */
+    let pos = [target[0], target[1]];
+    for (let i = 0; i < 3; i += 1) {
+      if (inBounds(state, pos)) {
+        const occupant = occupantAt(state, pos);
+        if (occupant !== undefined && !ids.includes(occupant.id)) {
+          ids.push(occupant.id);
+        }
+      }
+      pos = add(pos, DIRS[dir]);
+    }
+    for (const id of ids) {
+      damageBand(state, id, action.damage);
+    }
+    return;
+  }
+
+  const occupant = occupantAt(state, target);
+  if (occupant === undefined) return;
+  const occupantId = occupant.id;
+  damageBand(state, occupantId, action.damage);
+  if (action.push > 0 && bandById(state, occupantId) !== undefined) {
+    const dir = dirBetween(head, target);
+    if (dir !== null) pushBand(state, occupantId, dir);
+  }
+}

@@ -1,0 +1,224 @@
+/* The scene overlay (opening-act spec, "The scene system"): a visual
+   novel over whatever screen is underneath. js/ui/scene-view.js builds it.
+
+   The screen stays visible through a light dimming. Two cut-out
+   portraits stand at the bottom left and right, square images with
+   transparent backgrounds drawn facing the viewer's left: the right one
+   as it is, the left one mirrored, so they face each other. The speaker
+   is bright and a little forward, the other darkened. The text box runs
+   across the bottom in front of their shoulders.
+
+   Colours are the board's palette from js/ui/patterns.js (FRAME,
+   STUBBLE, DEN_GLOW, HAZARD, CREAM, INK) and the custom properties on
+   :root in game.css; tests/scene-view.test.mjs checks that nothing else
+   creeps in. */
+
+.scene {
+  /* One cut-out: two fit side by side at 360px wide. */
+  --cut: min(44vw, 38vh, 280px);
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(12, 29, 18, 0.35);
+  color: var(--cream);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+  animation: scene-in 180ms ease-out;
+}
+
+/* A pointed line with its target in the lower half: the box goes up. */
+.scene[data-side="top"] {
+  justify-content: flex-start;
+  padding-top: calc(12px + env(safe-area-inset-top));
+}
+
+.scene [hidden] {
+  display: none !important;
+}
+
+/* --- the cut-outs --- */
+
+.scene__stage {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 640px;
+  height: var(--cut);
+  /* The box overlaps the shoulders, where the portraits fade out. */
+  margin-bottom: -24px;
+  pointer-events: none;
+}
+
+.scene__cutout {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: none;
+  width: var(--cut);
+  height: var(--cut);
+  margin: 0;
+  /* The one not speaking is dimmed by darkening and stays solid: faded
+     to see-through, the screen's labels read through a face. */
+  filter: brightness(0.55) saturate(0.8);
+  transform: scale(0.92);
+  transform-origin: 50% 100%;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.scene__cutout--right {
+  margin-left: auto;
+}
+
+.scene__cutout[data-speaking="true"] {
+  filter: none;
+  transform: scale(1);
+}
+
+.scene__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+
+.scene__cutout--left .scene__art {
+  transform: scaleX(-1);
+}
+
+/* The closed eyes, over the art at exactly its size and place; shown only
+   for a blink (js/ui/blink.js). */
+.scene__blink {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* No image yet: the character's stamp disc stands in the same place. */
+.scene__stamp {
+  display: block;
+  width: 72%;
+  height: 72%;
+  margin-bottom: 26px;
+}
+
+/* --- the text box --- */
+
+.scene__box {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 45vh;
+  /* The kit's wood (css/ui.css), solid, so the log and the buttons under
+     it never read through the words. */
+  --edge: 24px;
+  padding: 16px 30px 12px;
+}
+
+.scene__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+/* The speaker's name sits on their side of the box. */
+.scene__box[data-speaker="right"] .scene__top {
+  flex-direction: row-reverse;
+}
+
+.scene__head-wrap {
+  flex: none;
+}
+
+.scene__head {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+.scene__name {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  color: #f3c766;
+}
+
+/* Text that does not fit scrolls here; Skip below it stays in view. */
+.scene__text {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.scene__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: none;
+}
+
+.scene__more {
+  font-size: 16px;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* Skip is the kit's small plain button (css/ui.css). */
+.scene__skip {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* --- the ring round what a line points at --- */
+
+.scene__ring {
+  position: fixed;
+  border: 3px solid #f2c12e;
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px rgba(29, 38, 24, 0.6), 0 0 18px rgba(242, 193, 46, 0.8);
+  pointer-events: none;
+  animation: scene-ring 900ms ease-in-out infinite alternate;
+}
+
+@keyframes scene-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scene-ring {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+/* Reduced motion: no transitions at all. */
+.scene[data-motion="reduced"],
+.scene[data-motion="reduced"] * {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .scene * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

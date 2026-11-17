@@ -1,0 +1,1350 @@
+/* The menus (play-feel spec, "Changed after Jake's playtest of the full
+   build"): the unit card, the deploy screen's band panel and the trading
+   post. Loaded after game.css and map.css.
+
+   Colours are the board's palette from js/ui/patterns.js (FRAME, CREAM,
+   DEN_GLOW, STUBBLE_LIGHT, GRASS_LIGHT, WATER_LIGHT, SOIL, FOREST_SHADE)
+   and the custom properties on :root in game.css; tests/menus-css.test.mjs
+   checks that nothing else creeps in. */
+
+/* --- the unit card ---
+
+   A page from a naturalist's field guide: cream paper (the map labels'
+   cream) and one ink, with the brown of the soil as its one accent, for
+   the row labels. The cut-out portrait stands unframed on a hairline at
+   the card's left and rises a little above its top edge; the portraits
+   are seated on their bottom edge (scripts/portraits.mjs), so it meets
+   the line across its whole chest. Nothing around it: no disc, no box.
+   Speed and length are drawn as marks (unit-card.js); the words are
+   there for a screen reader. */
+
+.unit-card {
+  /* The portrait's box is a little taller than the name block beside
+     it, so it stands on the hairline and rises above the card's top;
+     the portraits keep some empty room over the head, so what shows
+     above the edge is a little less than --rise. */
+  --fig: 144px;
+  --rise: 44px;
+  /* The paper is the kit's parchment (css/ui.css, .ui-panel--parchment). */
+  position: relative;
+  margin-top: calc(var(--rise) - 12px);
+  padding: 0 18px 16px;
+  font-size: 17px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.unit-card__plate {
+  display: grid;
+  grid-template-columns: var(--fig) minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: end;
+  margin: 0 0 10px;
+  border-bottom: 1px solid rgba(29, 38, 24, 0.45);
+}
+
+.unit-card__figure {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: var(--fig);
+  height: var(--fig);
+  margin-top: calc(-1 * var(--rise));
+}
+
+.unit-card__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+
+/* No image: the stamp's disc stands on the line, ring and fill one circle. */
+.unit-card .unit-card__stamp {
+  display: block;
+  width: 86%;
+  height: 86%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.unit-card__head {
+  min-width: 0;
+  padding: 14px 0 10px;
+}
+
+.unit-card__name {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.unit-card__role {
+  margin: 3px 0 0;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.25;
+}
+
+.unit-card__marks {
+  margin: 0 0 8px;
+}
+
+.unit-card__head .unit-card__marks {
+  margin: 8px 0 0;
+}
+
+.unit-card__marks-drawn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.unit-card__mark {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 7px;
+}
+
+.unit-card__mark-label,
+.unit-card__label {
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+}
+
+.unit-card__mark-label {
+  font-size: 14px;
+}
+
+.unit-card__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unit-card__dot {
+  position: relative;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+}
+
+.unit-card__dot.is-filled {
+  background: var(--ink);
+}
+
+/* Length: the dots are linked, like the band itself. */
+.unit-card__dots--chain .unit-card__dot + .unit-card__dot::before {
+  content: '';
+  position: absolute;
+  top: calc(50% - 0.75px);
+  right: calc(100% + 1.5px);
+  width: 4px;
+  height: 1.5px;
+  background: var(--ink);
+}
+
+.unit-card__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unit-card__row + .unit-card__row {
+  margin-top: 6px;
+}
+
+.unit-card__label {
+  font-size: 1.08em;
+  color: #6e4b2f;
+}
+
+.unit-card__next {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(29, 38, 24, 0.35);
+  font-size: 15px;
+  font-style: italic;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The deploy screen's brief card (the compact card): for a phone with
+   little room, under the board or over its free half. The portrait small
+   beside the name and the marks, then each action or trait on one line,
+   cut short where it must be; the full card is a tap away (deploy-view.js
+   opens it over the screen). It has no next-tier line (unit-card.js):
+   nothing can be bought here. As tall as it needs, up to the whole half
+   over the board, and its rows scroll inside it only if they ever must. */
+.unit-card--compact {
+  --fig: 56px;
+  --rise: 16px;
+  display: flex;
+  flex-direction: column;
+  --edge: 12px;
+  max-height: 100%;
+  margin: 0;
+  /* 6px at the foot, with the rows' own 2px (below). */
+  padding: 0 10px 4px;
+  font-size: 14px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.unit-card--compact .unit-card__plate {
+  flex: none;
+  column-gap: 8px;
+  margin-bottom: 5px;
+}
+
+.unit-card--compact .unit-card__head {
+  padding: 6px 0 5px;
+}
+
+.unit-card--compact .unit-card__name {
+  /* Room on the right for "Full card" (and the hide button over the board). */
+  padding-right: 92px;
+  font-size: 21px;
+}
+
+.deploy-panel--top .unit-card--compact .unit-card__name,
+.deploy-panel--bottom .unit-card--compact .unit-card__name,
+.deploy-panel--left .unit-card--compact .unit-card__name,
+.deploy-panel--right .unit-card--compact .unit-card__name {
+  padding-right: 128px;
+}
+
+/* The full card says what it is for; the brief one leaves it there. */
+.unit-card--compact .unit-card__role {
+  display: none;
+}
+
+.unit-card--compact .unit-card__marks {
+  margin-top: 3px;
+}
+
+.unit-card--compact .unit-card__marks-drawn {
+  gap: 1px 12px;
+}
+
+.unit-card--compact .unit-card__mark {
+  gap: 1px 5px;
+}
+
+.unit-card--compact .unit-card__mark-label {
+  font-size: 11px;
+}
+
+.unit-card--compact .unit-card__dots {
+  gap: 2.5px;
+}
+
+.unit-card--compact .unit-card__dot {
+  width: 7px;
+  height: 7px;
+  border-width: 1.2px;
+}
+
+.unit-card--compact .unit-card__dots--chain .unit-card__dot + .unit-card__dot::before {
+  top: calc(50% - 0.6px);
+  right: calc(100% + 1.2px);
+  width: 2.5px;
+  height: 1.2px;
+}
+
+/* The rows scroll inside the card only when they truly do not fit. The
+   card's lines are set tighter than EB Garamond's own height, so each
+   line's letters stand up to a pixel below their line; in a scrolling box
+   that pixel counted as overflow, and a mouse's scroll bar came up beside
+   rows that fit (and, taking their width, made them wrap and not fit).
+   The 2px at the rows' foot hold it. When they do scroll, the bar is thin,
+   in the card's ink, on no track. */
+.unit-card--compact .unit-card__rows {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding-bottom: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 38, 24, 0.35) transparent;
+}
+
+/* The same bar where scrollbar-color is not known (Safari). */
+.unit-card--compact .unit-card__rows::-webkit-scrollbar {
+  width: 6px;
+}
+
+.unit-card--compact .unit-card__rows::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.unit-card--compact .unit-card__rows::-webkit-scrollbar-thumb {
+  background: rgba(29, 38, 24, 0.35);
+  border-radius: 3px;
+}
+
+/* One line per action: the emblem, the name, and as much of the
+   sentence as fits. */
+.unit-card--compact .unit-card__row {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.unit-card--compact .unit-card__row + .unit-card__row {
+  margin-top: 3px;
+}
+
+/* A roomier half (a 520px board): the same card, easier to read. */
+@container band-panel (min-width: 400px) {
+  .unit-card--compact {
+    --fig: 64px;
+    --rise: 18px;
+    font-size: 15.5px;
+    line-height: 1.26;
+  }
+
+  .unit-card--compact .unit-card__name {
+    font-size: 23px;
+  }
+
+  .unit-card--compact .unit-card__mark-label {
+    font-size: 12.5px;
+  }
+
+  .unit-card--compact .unit-card__dot {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+/* A tall, narrow half (the left or right of the board): the portrait
+   stands above the name instead of beside it, the rows keep only their
+   names, and "Full card" goes under them. */
+@container band-panel (max-width: 260px) {
+  /* Above the name it would rise into the head over the board, so here
+     it barely rises. */
+  .unit-card--compact {
+    --rise: 6px;
+  }
+
+  .unit-card--compact .unit-card__plate {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .unit-card--compact .unit-card__head {
+    padding: 2px 0 6px;
+  }
+
+  .deploy-panel .unit-card--compact .unit-card__name {
+    padding-right: 0;
+  }
+
+  .unit-card--compact .unit-card__figure {
+    margin-right: 34px;
+  }
+
+  .unit-card--compact .unit-card__text {
+    display: none;
+  }
+
+  /* A long band's chain of dots goes on to a second line. */
+  .unit-card--compact .unit-card__dots {
+    flex-wrap: wrap;
+    row-gap: 3px;
+  }
+
+  .unit-card--compact .deploy-panel__more {
+    position: static;
+    align-self: flex-end;
+    margin-top: 4px;
+  }
+}
+
+/* The full card on the deploy screen: in the side panel, under the
+   board, or over the screen. Where it has less room than the trading
+   post gives it, its portrait and name come down a size. */
+@container band-panel (max-width: 420px) {
+  .unit-card:not(.unit-card--compact) {
+    --fig: 112px;
+    --rise: 34px;
+    padding: 0 16px 14px;
+    font-size: 16px;
+  }
+
+  .unit-card:not(.unit-card--compact) .unit-card__name {
+    padding-right: 30px;
+    font-size: 25px;
+  }
+
+  .unit-card:not(.unit-card--compact) .unit-card__role {
+    font-size: 15px;
+  }
+}
+
+/* "Full card": quiet small capitals on the name's line, a thumb's
+   reach round them. */
+.deploy-panel__more {
+  position: absolute;
+  top: 7px;
+  right: 10px;
+  z-index: 1;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 14px;
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  color: #6e4b2f;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.deploy-panel__more::before {
+  content: '';
+  position: absolute;
+  inset: -8px -6px;
+}
+
+.deploy-panel__more::after {
+  content: ' \203A';
+  font-size: 1.25em;
+  line-height: 0;
+}
+
+/* Over the board the hide button has the corner; "Full card" sits
+   beside it. */
+.deploy-panel--top .deploy-panel__more,
+.deploy-panel--bottom .deploy-panel__more,
+.deploy-panel--left .deploy-panel__more,
+.deploy-panel--right .deploy-panel__more {
+  right: 42px;
+}
+
+/* --- the deploy screen ---
+
+   Laid out as the battle screen is (css/game.css). Phone first, one
+   column the height of the screen: the level's name and Back; the goal
+   on its parchment card and the counts as chips; the board, with the
+   picked band's card under it when there is room (js/ui/menu-layout.js,
+   cardPlacement, sets --slot-h to the card's height); the tray of tokens;
+   then Start, which stays in reach at the foot. From 720px wide the
+   board is on the left and the rest is a side panel, with the card in
+   it, so nothing ever covers the board there. */
+
+.deploy-screen {
+  --slot-h: 0px;
+  /* The battle's quiet chips (css/game.css), the same here. */
+  --quiet-line: rgba(244, 239, 230, 0.24);
+  --quiet-fill: rgba(244, 239, 230, 0.07);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(240px, 1fr) auto auto;
+  grid-template-areas:
+    "head"
+    "goal"
+    "board"
+    "tray"
+    "bar";
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+@supports (height: 100dvh) {
+  @media (max-width: 719px) {
+    .deploy-screen {
+      height: calc(100dvh - 16px);
+    }
+  }
+}
+
+/* The board's cell: the board is the largest square that leaves the
+   card's room under it, board and card centred together. */
+.deploy-screen .board-area {
+  grid-area: board;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+}
+
+.deploy-screen .board-wrap {
+  width: min(100%, 520px);
+  max-width: none;
+  margin: 0;
+}
+
+@supports (container-type: size) {
+  .deploy-screen .board-wrap {
+    width: min(100cqw, 100cqh - var(--slot-h), 520px);
+  }
+}
+
+.deploy-slot {
+  display: none;
+  flex: none;
+  width: min(100%, 520px);
+}
+
+.deploy-screen--below .deploy-slot {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--slot-h);
+  padding-top: 10px;
+}
+
+.deploy-slot__note {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 16px;
+  font-style: italic;
+  text-align: center;
+  color: rgba(244, 239, 230, 0.66);
+}
+
+.deploy-slot__note[hidden] {
+  display: none;
+}
+
+/* The deploy tiles, marked over the painted board (the board draws no
+   highlight of its own here). A free tile where the picked band can go
+   is a pool of the dens' warm gold in a gold frame, its light breathing
+   slowly; with nothing to place, a quiet cream dashed frame. A tile a
+   band stands on keeps gold corner brackets, cream and brighter for the
+   band that is picked. The keyboard's cursor (game.css) is drawn over
+   them all. */
+.deploy-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.deploy-mark {
+  position: absolute;
+}
+
+.deploy-mark::before,
+.deploy-mark::after {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  border-radius: 16%;
+}
+
+.deploy-mark.is-ready::before {
+  /* Gold light pooled at its edges; its middle stays clear, so a bot's
+     plan that ends on it still shows. */
+  background: radial-gradient(circle at 50% 50%, rgba(243, 199, 102, 0.16) 0%, rgba(243, 199, 102, 0.3) 50%, rgba(243, 199, 102, 0.62) 100%);
+  border: 3px solid #f3c766;
+  box-shadow: 0 0 0 1.5px rgba(29, 38, 24, 0.75), inset 0 0 0 1.5px rgba(29, 38, 24, 0.4);
+}
+
+.deploy-mark.is-ready::after {
+  box-shadow: 0 0 12px 3px rgba(243, 199, 102, 0.85), inset 0 0 12px 3px rgba(243, 199, 102, 0.6);
+  animation: deploy-glow 1700ms ease-in-out infinite;
+}
+
+@keyframes deploy-glow {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.deploy-mark.is-idle::before {
+  background: rgba(244, 239, 230, 0.12);
+  border: 2px dashed rgba(244, 239, 230, 0.8);
+  box-shadow: 0 0 0 1.5px rgba(29, 38, 24, 0.45);
+}
+
+.deploy-mark.is-held::before {
+  --c: #f3c766;
+  --t: 3px;
+  --l: 28%;
+  inset: 3%;
+  border-radius: 0;
+  background:
+    linear-gradient(var(--c), var(--c)) left top / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) left top / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) right top / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) right top / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) left bottom / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) left bottom / var(--t) var(--l),
+    linear-gradient(var(--c), var(--c)) right bottom / var(--l) var(--t),
+    linear-gradient(var(--c), var(--c)) right bottom / var(--t) var(--l);
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 1px rgba(29, 38, 24, 0.95));
+}
+
+/* The picked band's tile: the brackets in cream, heavier, in a gold glow. */
+.deploy-mark.is-picked::before {
+  --c: var(--cream);
+  --t: 4px;
+  --l: 34%;
+}
+
+.deploy-mark.is-picked::after {
+  inset: 3%;
+  border-radius: 10%;
+  box-shadow: 0 0 14px 3px rgba(243, 199, 102, 0.75);
+}
+
+/* The keyboard's cursor (css/game.css) over a marked tile: a hazard
+   glow round it, so it stands apart from the gold. */
+.deploy-screen .board-cursor {
+  box-shadow: 0 0 0 2px rgba(29, 38, 24, 0.85), 0 0 12px 3px rgba(242, 193, 46, 0.85), inset 0 0 0 1.5px rgba(29, 38, 24, 0.85);
+}
+
+/* A band just put down: one ring spreads from its tile and fades. */
+.deploy-mark__ring {
+  position: absolute;
+  inset: 8%;
+  border: 3px solid var(--cream);
+  border-radius: 50%;
+  opacity: 0;
+  animation: deploy-landed 520ms ease-out;
+}
+
+@keyframes deploy-landed {
+  0% { transform: scale(0.45); opacity: 0.95; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+/* --- the picked band's card ---
+
+   Beside the board (wide) or under it (a phone with room), in the
+   flow. Over the board only when there is no room: then laid over
+   exactly half of it, the half js/ui/menu-layout.js picks away from the
+   deploy tiles, so no deploy tile is ever under it; the Start button is
+   below the board and outside the panel's reach. The card in it is solid
+   paper; only its portrait rises a little above its edge. */
+
+.deploy-panel {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  container: band-panel / inline-size;
+}
+
+.deploy-panel[hidden] {
+  display: none;
+}
+
+.deploy-panel--top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+}
+
+.deploy-panel--bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  /* The card sits on the half's lower edge. */
+  justify-content: flex-end;
+}
+
+.deploy-panel--left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+}
+
+.deploy-panel--right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+}
+
+/* In the flow: under the board, or in the side panel. */
+.deploy-panel--below,
+.deploy-panel--side {
+  position: static;
+  width: 100%;
+}
+
+/* Laid out off screen to measure the cards' heights. */
+.deploy-panel--measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.unit-card .deploy-panel__hide {
+  /* The kit's round button (css/ui.css), on the card's corner. */
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+/* The full card over the whole screen: any tap closes it. */
+.deploy-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  padding: 20px 16px;
+  overflow-y: auto;
+  background: rgba(12, 29, 18, 0.7);
+  cursor: pointer;
+  animation: deploy-sheet-in 180ms ease-out;
+}
+
+.deploy-sheet__inner {
+  width: min(100%, 440px);
+  margin: auto;
+  container: band-panel / inline-size;
+  animation: deploy-card-in 220ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.deploy-sheet .deploy-sheet__close {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+@keyframes deploy-sheet-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes deploy-card-in {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* --- the tray: one token per band owned, on the kit's wood --- */
+
+.deploy-tray {
+  grid-area: tray;
+  --edge: 20px;
+  position: relative;
+  margin: 18px 0 0;
+  padding: 11px 26px 9px;
+}
+
+/* One line, whatever it says, so the tray (and the board above it) keeps
+   its size when the hint goes. Clear of the frame's corner leaves. */
+.deploy-tray__head {
+  display: flex;
+  align-items: center;
+  height: 19px;
+  margin: 0 0 3px;
+  padding: 0 8px;
+  font-size: 15px;
+  line-height: 19px;
+  white-space: nowrap;
+}
+
+.deploy-tray__hint {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Before the first band is down, the hint, small and quiet; after, only
+   the tray's name, as the goal card's label is set. */
+.deploy-tray__hint.is-hint {
+  font-style: italic;
+  color: rgba(244, 239, 230, 0.8);
+}
+
+.deploy-tray__hint:not(.is-hint) {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 230, 0.62);
+}
+
+.deploy-tray__keys {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deploy-tray__keys {
+    display: inline;
+  }
+}
+
+/* How many are down, on an ink badge pinned to the tray's top edge, as
+   the board pins a band's count on it. Gold once the board is full. */
+.deploy-tray__count {
+  position: absolute;
+  top: -13px;
+  right: 30px;
+  z-index: 1;
+  height: 26px;
+  margin: 0;
+  padding: 0 11px;
+  font-size: 15px;
+  line-height: 23px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--cream);
+  background: var(--ink);
+  border: 1.5px solid var(--honey);
+  border-radius: 999px;
+  box-shadow: 0 2px 5px rgba(12, 29, 18, 0.6);
+}
+
+.deploy-tray__count.is-full {
+  color: #f3c766;
+}
+
+.deploy-tray .roster {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 4px;
+  margin: 0;
+}
+
+/* A token: the band's head in a slice of branch (the kit's round piece),
+   its length on the board's own ink badge, its name under it. The band
+   picked rises a little in a cream ring and a gold glow, its name in
+   gold; a band on the board wears a leaf-green tick; with the board full,
+   the bands left off rest, greyed (a tap still shows the card). */
+.deploy-token {
+  --disc: 54px;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 58px;
+  max-width: 96px;
+  min-height: 44px;
+  margin: 0;
+  padding: 5px 2px 2px;
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.1;
+  color: var(--cream);
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.deploy-token__disc {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--disc);
+  height: var(--disc);
+  background: radial-gradient(circle at 50% 50%, #d9c088 0 60%, #c2a468 66%, #6e4b2f 72%, #473020 100%);
+  border-radius: 50%;
+  filter: drop-shadow(0 3px 3px rgba(12, 29, 18, 0.55));
+  transition: transform 140ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+html.has-kit-button-round .deploy-token__disc {
+  background: var(--kit-button-round) center / 100% 100% no-repeat;
+}
+
+/* The head: a round crop of the portrait set into the wood. The ring and
+   the fill are one round element, so they meet. */
+.roster-btn__head {
+  position: absolute;
+  inset: 13%;
+  overflow: hidden;
+  background: var(--cream);
+  border: 2px solid #473020;
+  border-radius: 50%;
+}
+
+.roster-btn__head img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.roster-btn__glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.deploy-token__name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(12, 29, 18, 0.85);
+}
+
+/* Its length, on the ink badge the board puts on a band. */
+.deploy-token__len {
+  position: absolute;
+  top: calc(5px + var(--disc) - 19px);
+  left: calc(50% + var(--disc) / 2 - 17px);
+  min-width: 21px;
+  height: 19px;
+  padding: 0 5px;
+  font: 700 12px/16px system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: center;
+  color: var(--cream);
+  background: var(--ink);
+  border: 1.5px solid var(--cream);
+  border-radius: 999px;
+  transition: transform 140ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.deploy-token__tick {
+  display: none;
+}
+
+.deploy-token.is-placed .deploy-token__tick {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + var(--disc) / 2 - 16px);
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: var(--leaf);
+  border: 1.5px solid var(--cream);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(12, 29, 18, 0.6);
+  transition: transform 140ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.deploy-token.is-placed .deploy-token__tick::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2.5px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--cream);
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.deploy-token.is-selected .deploy-token__disc,
+.deploy-token.is-selected .deploy-token__len,
+.deploy-token.is-selected .deploy-token__tick {
+  transform: translateY(-3px);
+}
+
+.deploy-token.is-selected .deploy-token__disc {
+  box-shadow: 0 0 0 3px var(--cream), 0 0 10px 3px rgba(243, 199, 102, 0.85);
+}
+
+.deploy-token.is-selected .deploy-token__name {
+  color: #f3c766;
+}
+
+.deploy-token.is-out .deploy-token__disc {
+  filter: grayscale(0.75) brightness(0.7);
+}
+
+.deploy-token.is-out .deploy-token__name {
+  opacity: 0.6;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deploy-token:hover .deploy-token__disc {
+    transform: translateY(-2px);
+  }
+
+  .deploy-token.is-selected:hover .deploy-token__disc {
+    transform: translateY(-4px);
+  }
+}
+
+/* Pressed: pushed in, at once. */
+.deploy-token:active .deploy-token__disc,
+.deploy-token:active .deploy-token__len,
+.deploy-token:active .deploy-token__tick {
+  transform: translateY(1px) scale(0.96);
+  transition-duration: 40ms;
+}
+
+/* The key that picks it, on its lower left (the tick has the upper
+   right, the length the lower right), with a mouse and keyboard. */
+.deploy-token .key-hint {
+  position: absolute;
+  top: calc(5px + var(--disc) - 17px);
+  left: calc(50% - var(--disc) / 2 - 5px);
+  margin: 0;
+  color: var(--cream);
+  background: var(--ink);
+  opacity: 0.85;
+}
+
+/* --- Start, the main button, in reach at the foot --- */
+
+.deploy-bar {
+  grid-area: bar;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  margin: 0;
+  padding: 10px 0 calc(8px + env(safe-area-inset-bottom));
+  background: var(--frame);
+}
+
+html.has-kit-backdrop .deploy-bar {
+  background: var(--frame-deep) var(--kit-backdrop) 0 0 / 256px 256px repeat fixed;
+}
+
+.deploy-bar .deploy-start {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* On a phone the tokens stay in one row, which slides sideways when there
+   are more than fit, so a large roster never takes the board's room. */
+@media (max-width: 719px) {
+  .deploy-tray .roster {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    margin: -6px 0 0;
+    padding: 6px 2px 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .deploy-tray .roster::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* When it slides, its ends fade, so a token half out reads as more. */
+  .deploy-tray .roster.is-sliding {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--ink) 18px, var(--ink) calc(100% - 18px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, var(--ink) 18px, var(--ink) calc(100% - 18px), transparent 100%);
+  }
+
+  /* Centred while they fit, and from the start when they do not. */
+  .deploy-tray .roster > :first-child {
+    margin-left: auto;
+  }
+
+  .deploy-tray .roster > :last-child {
+    margin-right: auto;
+  }
+
+  .deploy-token {
+    flex: none;
+  }
+}
+
+/* A short phone (a browser with its bars showing): everything round the
+   board a little tighter, so the board keeps a fair size. */
+@media (max-width: 719px) and (max-height: 700px) {
+  .deploy-screen .battle-goal {
+    margin: 6px 0 2px;
+  }
+
+  .deploy-screen .battle-goal__card {
+    padding: 6px 14px 7px;
+    font-size: 16px;
+  }
+
+  .deploy-screen .battle-goal__chips {
+    margin-top: 5px;
+  }
+
+  .deploy-screen .battle-chip {
+    height: 26px;
+    font-size: 15px;
+  }
+
+  .deploy-tray {
+    margin-top: 16px;
+    padding: 10px 24px 6px;
+  }
+
+  .deploy-token {
+    --disc: 48px;
+    gap: 2px;
+    padding-top: 4px;
+  }
+
+  .deploy-bar {
+    padding-top: 8px;
+  }
+
+  .deploy-bar .deploy-start {
+    --btn-h: 50px;
+    font-size: 19px;
+  }
+}
+
+/* --- wide: the board on the left, the rest a side panel --- */
+
+@media (min-width: 720px) {
+  .deploy-screen {
+    --panel: 340px;
+    --board-size: max(280px, min(100vw - 88px - var(--panel), 100vh - 32px, 760px));
+    grid-template-columns: var(--board-size) var(--panel);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "board head"
+      "board goal"
+      "board tray"
+      "board card"
+      "board bar";
+    column-gap: 28px;
+    justify-content: center;
+    max-width: none;
+    height: calc(var(--board-size) + 16px);
+    padding-top: 16px;
+  }
+
+  /* The board's cell gives way: the board and the card's place are each
+     placed in the grid. */
+  .deploy-screen .board-area {
+    display: contents;
+  }
+
+  .deploy-screen .board-wrap {
+    grid-area: board;
+    align-self: start;
+    width: var(--board-size);
+  }
+
+  .deploy-slot,
+  .deploy-screen--below .deploy-slot {
+    grid-area: card;
+    display: flex;
+    flex-direction: column;
+    width: auto;
+    min-height: 0;
+    padding-top: 14px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(244, 239, 230, 0.3) transparent;
+  }
+
+  .deploy-tray {
+    margin-top: 18px;
+  }
+
+  /* Beside the board the tray's height moves nothing: the hint may wrap. */
+  .deploy-tray__head {
+    height: auto;
+    margin-bottom: 5px;
+    white-space: normal;
+  }
+
+  .deploy-bar,
+  html.has-kit-backdrop .deploy-bar {
+    position: static;
+    padding: 14px 0 0;
+    background: none;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (min-width: 720px) {
+    .deploy-screen {
+      --board-size: max(280px, min(100vw - 88px - var(--panel), 100dvh - 32px, 760px));
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deploy-mark.is-ready::after,
+  .deploy-sheet,
+  .deploy-sheet__inner {
+    animation: none;
+  }
+
+  .deploy-mark__ring {
+    display: none;
+  }
+
+  .deploy-token__disc,
+  .deploy-token__len,
+  .deploy-token__tick {
+    transition: none;
+  }
+}
+
+/* --- the trading post --- */
+
+.shop-front {
+  margin: 0 0 12px;
+}
+
+.shop-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 3px solid var(--frame-deep);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(12, 29, 18, 0.6);
+}
+
+/* The painted shop: the interior, Hazel's cut-out, then the counter in
+   front of her, stacked in one 3:2 box (js/ui/shop-scene.js places her). */
+.shop-painted {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  background: #6e4b2f;
+  border: 3px solid var(--frame-deep);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(12, 29, 18, 0.6);
+}
+
+.shop-painted__layer {
+  position: absolute;
+  display: block;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.shop-painted__interior,
+.shop-painted__counter {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.shop-painted__keeper {
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* Hazel's closed eyes take .shop-painted__keeper's place and size too, set
+   inline from the same fractions; shown only for a blink. */
+
+/* The keeper's line, on the kit's parchment like the unit cards,
+   pointing up at her with a small tab of the same paper. */
+.shop-greeting {
+  position: relative;
+  margin: 18px 8px 0;
+  padding: 14px 20px;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.shop-greeting::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: calc(50% - 8px);
+  width: 16px;
+  height: 16px;
+  background: var(--parchment);
+  transform: rotate(45deg);
+  border-radius: 3px 0 0 0;
+}
+
+.shop-greeting__name {
+  font-weight: 400;
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  color: #6e4b2f;
+}
+
+.shop-section__title {
+  margin: 18px 0 8px;
+  padding-bottom: 4px;
+  font-size: 21px;
+  font-weight: 400;
+  color: #f3c766;
+  border-bottom: 1px solid rgba(244, 239, 230, 0.2);
+}
+
+.shop-section .shop-list {
+  gap: 18px;
+  margin: 0;
+}
+
+/* The deal sits on the card's own paper, at its foot. */
+.shop-deal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(29, 38, 24, 0.35);
+}
+
+.shop-deal__text {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 16px;
+}
+
+.shop-deal__price {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.shop-deal__price.is-short {
+  color: #b4532a;
+}
+
+.shop-deal__buy {
+  margin-left: auto;
+}
+
+/* Too dear for the purse, it is the kit's dead button (.is-dead in
+   css/ui.css): it reads as off, but a tap makes Hazel say why. */

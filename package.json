@@ -1,0 +1,1 @@
+{"name":"undergrowth","private":true,"type":"module","scripts":{"test":"node --test","typecheck":"tsc -p jsconfig.json","precache-hash":"node scripts/precache-hash.mjs"},"devDependencies":{"typescript":"^5"}}
