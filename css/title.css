@@ -8,16 +8,21 @@
    upper third where the scene is calmest, and the buttons sit at
    the bottom within one thumb's reach, each at least 44px tall.
 
-   Animation is transform and opacity only: a very slow drift and
-   zoom of the scene, a smaller opposite drift of the cast, a gentle
-   sway of the foliage, rising motes, the title fading up, and a soft
-   pulse on the main button. Under prefers-reduced-motion — and on a
-   screen the view marks .is-still — everything is still. */
+   The painting and the cast hold still: a slow drift of the whole
+   scene read as the screen creeping. Animation is transform and
+   opacity only: a gentle sway of the foliage, rising motes, the title
+   fading up, and a soft pulse on the main button. Under
+   prefers-reduced-motion — and on a screen the view marks .is-still —
+   everything is still. */
 
+/* The foliage and the cast hang past the bottom edge. `clip`, not just
+   `hidden`: a hidden overflow can still be scrolled, and focusing Begin
+   on load scrolled the screen up, lifting the scene off the bottom. */
 .title-screen {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  overflow: clip;
   background: #0c1d12;
   color: var(--cream);
   font-family: 'EB Garamond', Georgia, serif;
@@ -35,12 +40,9 @@
   height: 100%;
 }
 
-/* The scene fills the screen; on a wide screen the tall scene is
-   cropped to cover, and the slow zoom keeps the crop edges hidden. */
+/* The scene fills the screen, cropped to cover. */
 .title-scene img {
   object-fit: cover;
-  transform: scale(1.08);
-  animation: title-scene-drift 48s ease-in-out infinite alternate;
 }
 
 /* No scene file: a code-drawn gradient in the game's palette, deep
@@ -52,63 +54,40 @@
     linear-gradient(180deg, #0c1d12 0%, #16301f 38%, #2c5a30 72%, #4c8440 100%);
 }
 
-/* Where the scene image lands on the screen. The scene is drawn to
-   cover, so its drawn size depends on the screen's shape; these give
-   that size and the image's top-left corner, in units of the title
-   screen itself (a size container). --scene-a is the image's width
-   over its height: the tall scene by default, the 16:9 scene on a
-   landscape screen, matching the choice js/ui/title-view.js makes. */
+/* The title screen is a size container, so the cast can be placed in
+   units of the screen's height (cqh), the same way the foliage clump
+   is sized. */
 .title-screen {
   container-type: size;
 }
 
-.title-layer {
-  --scene-a: 0.6664;
-  --scene-w: max(100cqw, 100cqh * var(--scene-a));
-  --scene-h: max(100cqh, 100cqw / var(--scene-a));
-  --scene-x: calc((100cqw - var(--scene-w)) / 2);
-  --scene-y: calc((100cqh - var(--scene-h)) / 2);
-}
-
-@media (orientation: landscape) {
-  .title-layer {
-    --scene-a: 1.7778;
-  }
-}
-
-/* The cast stands whole, feet on the mossy bank, looking out at the
-   cleared field. They are pinned to a spot IN THE PAINTING, not on the
-   screen: --cast-u and --cast-v are where their feet stand as fractions
-   of the scene image, and --cast-h is their height as a fraction of the
-   image's height. The layer then takes exactly the scene's own slow
-   zoom and drift, about the same centre, so the pair never slide over
-   the ground. A soft shadow under the feet and a little less colour
-   seat them in the painted light. */
+/* The cast stand in the bottom-left corner, just behind the foliage
+   clump, looking out at the cleared field. Their feet are below the
+   screen's edge: feet planted on the painted grass never quite sit in
+   it, so the pair are framed from the shins up, as if standing in the
+   undergrowth just in front of us. They are placed on the SCREEN, not
+   on a spot in the painting: the painting is cropped to cover, so a
+   spot in it slides about (or right off the edge) as the window's
+   shape changes, while the clump stays put. Sizes are in the screen's
+   height, like the clump's; on a wide screen the pair stay left of
+   Begin. A little less colour seats them in the painted light. */
 .title-cast {
-  --cast-u: 0.225;
-  --cast-v: 0.835;
-  --cast-h: 0.235;
-  --cast-height: calc(var(--cast-h) * var(--scene-h));
-  --cast-left: calc(var(--scene-x) + var(--cast-u) * var(--scene-w) - var(--cast-height) * 0.75);
-  --cast-top: calc(var(--scene-y) + var(--cast-v) * var(--scene-h) - var(--cast-height));
   inset: auto;
-  left: var(--cast-left);
-  top: var(--cast-top);
-  height: var(--cast-height);
+  left: 8cqh;
+  bottom: -2.5cqh;
+  height: 25cqh;
   aspect-ratio: 3 / 2;
   isolation: isolate;
-  transform-origin: calc(50cqw - var(--cast-left)) calc(50cqh - var(--cast-top));
-  transform: scale(1.08);
-  animation: title-planted-drift 48s ease-in-out infinite alternate;
 }
 
-/* The tall scene: the bank is nearer the middle, and the pair are a
-   smaller part of a taller picture. */
+/* On a tall screen there is no room beside Begin: the pair stand
+   larger, across the bottom of the screen, with the button in front
+   of them and their heads and cloaks above it. */
 @media (orientation: portrait) {
   .title-cast {
-    --cast-u: 0.405;
-    --cast-v: 0.85;
-    --cast-h: 0.19;
+    left: -3cqw;
+    bottom: -2.5cqh;
+    height: min(31cqh, 66cqw);
   }
 }
 
@@ -251,18 +230,6 @@
   .title-heading {
     top: 17%;
   }
-}
-
-@keyframes title-scene-drift {
-  from { transform: scale(1.08) translate(0, 0); }
-  to { transform: scale(1.16) translate(-1.5%, -2%); }
-}
-
-/* The scene's own drift, for a layer that is not the full screen: the
-   same scale, and the same shift written in the screen's units. */
-@keyframes title-planted-drift {
-  from { transform: scale(1.08) translate(0, 0); }
-  to { transform: scale(1.16) translate(-1.5cqw, -2cqh); }
 }
 
 @keyframes title-foliage-sway {
