@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderBoard } from '../js/ui/board.js';
-import { GROUND_KEYS, SURFACE_GROUND, patternId, groundFill, hasTexture } from '../js/ui/patterns.js';
+import { GROUND_KEYS, SURFACE_GROUND, patternId, groundFill, hasTexture, surfaceOf } from '../js/ui/patterns.js';
 import { groundGrid, tileBlend, forestTrees, tileMarks } from '../js/ui/look.js';
 import { bandLinks } from '../js/ui/links.js';
 import { makeState } from './helpers.mjs';
@@ -53,7 +53,9 @@ test('every tile is a <g data-tile="x,y"> holding its ground and its feature, wi
       const feature = g.children.filter((c) => c.attrs['data-feature'] !== undefined);
       assert.equal(ground.length, 1, 'one ground');
       assert.equal(feature.length, 1, 'one feature');
-      assert.equal(ground[0].attrs.fill, groundFill(grounds[y][x]), 'filled from the ground pattern');
+      const grassy = surfaceOf(grounds[y][x]) === 'grass';
+      assert.equal(ground[0].attrs.fill, grassy ? 'none' : groundFill(grounds[y][x]),
+        grassy ? 'grass left open to the field underlay' : 'filled from the ground pattern');
       assert.equal(ground[0].attrs['data-ground'], grounds[y][x]);
       for (const n of [g, ground[0], feature[0]]) assert.equal(n.attrs.transform, undefined);
     }
@@ -81,8 +83,20 @@ test('each tile is blended into the surfaces round it as tileBlend says, between
       assert.deepEqual(attr('data-edge'), blend.shade, `${x},${y} shade`);
       assert.deepEqual(attr('data-spill'), [...blend.spills.map((p) => p.side), ...blend.fades.map((p) => p.corner)], `${x},${y} spills`);
       // A rounded-off corner is one shape, and a second over it where
-      // this tile's own surface is the higher one.
-      assert.deepEqual(attr('data-cut'), blend.cuts.flatMap((c) => (c.beach === null ? [c.corner] : [c.corner, c.corner])), `${x},${y} cuts`);
+      // this tile's own surface is the higher one. A corner rounded into
+      // the grass is a notch cut out of the tile instead, so the field
+      // underlay shows there; only its second shape is drawn.
+      const notched = (/** @type {{fill: string}} */ c) => surfaceOf(grounds[y][x]) !== 'grass' && c.fill === 'grass';
+      assert.deepEqual(attr('data-cut'), blend.cuts.flatMap((c) => [
+        ...(notched(c) ? [] : [c.corner]), ...(c.beach === null ? [] : [c.corner]),
+      ]), `${x},${y} cuts`);
+      const notches = blend.cuts.filter(notched).map((c) => c.corner).join(' ');
+      const clipPath = g.children.find((c) => c.tag === 'clipPath');
+      assert.equal(clipPath?.attrs['data-notches'], notches || undefined, `${x},${y} notches`);
+      if (clipPath !== undefined) {
+        const clipped = g.children.filter((c) => c.attrs['clip-path'] === `url(#${clipPath.attrs.id})`);
+        assert.equal(clipped.length, 1 + blend.shade.length + blend.spills.length + blend.fades.length, 'ground and blend clipped');
+      }
       for (const cut of g.findAll('data-cut').filter((n) => n.attrs.opacity === undefined)) {
         const want = blend.cuts.find((c) => c.corner === cut.attrs['data-cut']);
         assert.equal(cut.attrs.fill, groundFill(SURFACE_GROUND[want.fill]), 'filled with the surface beside it');
@@ -94,6 +108,21 @@ test('each tile is blended into the surfaces round it as tileBlend says, between
     }
   }
   assert.ok(drawn > 0, 'the sample board has water, stubble and paving to blend');
+});
+
+test('the grass field fills one shape under the whole board, not one per tile', () => {
+  // WebKit draws a bitmap of the whole field for every shape that uses
+  // it; one per tile ran an iPhone out of memory opening a battle.
+  const s = sampleBoard();
+  const svg = draw(s);
+  const grassFills = new Set(GROUND_KEYS.filter((k) => surfaceOf(k) === 'grass').map((k) => groundFill(k)));
+  const users = svg.all().filter((n) => grassFills.has(n.attrs.fill));
+  assert.equal(users.length, 1);
+  assert.equal(users[0].attrs['data-layer'], 'grass');
+  assert.equal(users[0].attrs.width, String(s.width * 40));
+  assert.equal(users[0].attrs.height, String(s.height * 40));
+  const firstTile = svg.children.findIndex((c) => c.attrs['data-tile'] !== undefined);
+  assert.ok(svg.children.indexOf(users[0]) < firstTile, 'under the tiles');
 });
 
 test('the grid is a faint overlay shown only during move or target selection', () => {

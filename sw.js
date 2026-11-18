@@ -17,7 +17,7 @@
 // The browser byte-diffs sw.js, installs the new worker, precaches
 // into the new cache name and — on activate — deletes every older
 // cache (skipWaiting + clients.claim: no waiting-worker prompt).
-const APP_VERSION = '77';
+const APP_VERSION = '78';
 const CACHE_NAME = `undergrowth-v${APP_VERSION}`;
 
 // Relative to the worker's scope ("./" = repo root on Pages).

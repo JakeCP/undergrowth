@@ -39,7 +39,7 @@ import { BAND_TYPES } from '../engine/units.js';
 import { el } from './svg.js';
 import { svgIcon } from './icons.js';
 import {
-  defineGroundPatterns, groundFill, hasTexture, SURFACE_GROUND,
+  defineGroundPatterns, groundFill, hasTexture, surfaceOf, SURFACE_GROUND,
   BANK, STUBBLE,
   INK, CREAM, HAZARD, RUST, RUST_DARK, STEEL, ANIMAL, ANIMAL_DARK, FRAME,
   GRASS_LIGHT, GRASS_SHADE, FOREST_LIGHT, FOREST_SHADE,
@@ -699,6 +699,22 @@ function featureName(tile, ground) {
 }
 
 /**
+ * The rounded-off corner of the tile at (ox, oy): from the corner point,
+ * a curve that starts CUT along each side.
+ * @param {string} corner 'nw', 'ne', 'se' or 'sw'
+ * @param {number} ox
+ * @param {number} oy
+ * @returns {string}
+ */
+function cutPath(corner, ox, oy) {
+  const px = corner.endsWith('e') ? ox + TILE : ox;
+  const py = corner.startsWith('s') ? oy + TILE : oy;
+  const dx = corner.endsWith('e') ? -CUT : CUT;
+  const dy = corner.startsWith('s') ? -CUT : CUT;
+  return `M${px} ${py} L${px + dx} ${py} Q${px} ${py} ${px} ${py + dy} Z`;
+}
+
+/**
  * One tile: its ground, its blend into the surfaces round it (a shaded
  * edge on water, a fade of the higher surface beside it, its rounded-off
  * corners), and its feature: its painted piece (js/ui/board-pieces.js), or the
@@ -719,11 +735,35 @@ function drawTile(parent, tile, grounds, x, y, aimed, now, scene, joins = NO_JOI
   const ox = x * TILE;
   const oy = y * TILE;
   const ground = grounds[y][x];
-  // A hair wider than the tile so neighbours overlap and no seam shows.
-  el('rect', {
-    x: ox, y: oy, width: TILE + 0.5, height: TILE + 0.5, fill: groundFill(ground), 'data-ground': ground,
-  }, g);
+  const grassy = surfaceOf(ground) === 'grass';
   const blend = tileBlend(grounds, x, y);
+  // Grass is not filled tile by tile: the board's one field underlay
+  // (renderBoard) shows through. Every shape filled with the grass field
+  // costs WebKit a bitmap of the whole twelve-tile field, so a board of
+  // them ran an iPhone out of memory (2026-11-18). Other grounds are a
+  // hair wider than the tile toward any neighbour that is not grass too,
+  // so they overlap and no seam shows, but never spill onto the grass.
+  /** @param {number} dx @param {number} dy */
+  const over = (dx, dy) => {
+    const next = grounds[y + dy]?.[x + dx];
+    return next !== undefined && surfaceOf(next) === 'grass' ? 0 : 0.5;
+  };
+  const box = { x: ox, y: oy, width: TILE + over(1, 0), height: TILE + over(0, 1) };
+  const groundRect = el('rect', { ...box, fill: grassy ? 'none' : groundFill(ground), 'data-ground': ground }, g);
+  // A corner rounded off into the grass is cut out of this tile's ground
+  // and its blend, not painted over with grass, so the underlay shows.
+  const notches = grassy ? [] : blend.cuts.filter((c) => c.fill === 'grass');
+  /** @type {Record<string, string>} */
+  const clip = {};
+  if (notches.length > 0) {
+    const id = `ug-notch-${x}-${y}`;
+    const outline = `M${box.x} ${box.y} H${box.x + box.width} V${box.y + box.height} H${box.x} Z`;
+    const holes = notches.map(({ corner }) => cutPath(corner, ox, oy));
+    const clipPath = el('clipPath', { id, 'data-notches': notches.map((c) => c.corner).join(' ') }, g);
+    el('path', { d: [outline, ...holes].join(' '), 'clip-rule': 'evenodd' }, clipPath);
+    clip['clip-path'] = `url(#${id})`;
+    groundRect.setAttribute('clip-path', clip['clip-path']);
+  }
   /** @param {string} side @param {number} w the strip's width */
   const strip = (side, w) => {
     const horizontal = side === 'n' || side === 's';
@@ -735,27 +775,24 @@ function drawTile(parent, tile, grounds, x, y, aimed, now, scene, joins = NO_JOI
     };
   };
   for (const side of blend.shade) {
-    el('rect', { ...strip(side, EDGE), fill: `url(#ug-edge-${side})`, 'data-edge': side }, g);
+    el('rect', { ...strip(side, EDGE), fill: `url(#ug-edge-${side})`, 'data-edge': side, ...clip }, g);
   }
   for (const { side, from } of blend.spills) {
-    el('rect', { ...strip(side, SPILL), fill: `url(#ug-spill-${from}-${side})`, 'data-spill': side }, g);
+    el('rect', { ...strip(side, SPILL), fill: `url(#ug-spill-${from}-${side})`, 'data-spill': side, ...clip }, g);
   }
   for (const { corner, from } of blend.fades) {
     el('rect', {
       x: corner.endsWith('e') ? ox + TILE - SPILL : ox,
       y: corner.startsWith('s') ? oy + TILE - SPILL : oy,
       width: SPILL, height: SPILL,
-      fill: `url(#ug-spill-${from}-${corner})`, 'data-spill': corner,
+      fill: `url(#ug-spill-${from}-${corner})`, 'data-spill': corner, ...clip,
     }, g);
   }
   for (const { corner, fill, beach } of blend.cuts) {
-    // The corner point, and how far the curve starts along each side.
-    const px = corner.endsWith('e') ? ox + TILE : ox;
-    const py = corner.startsWith('s') ? oy + TILE : oy;
-    const dx = corner.endsWith('e') ? -CUT : CUT;
-    const dy = corner.startsWith('s') ? -CUT : CUT;
-    const d = `M${px} ${py} L${px + dx} ${py} Q${px} ${py} ${px} ${py + dy} Z`;
-    el('path', { d, fill: groundFill(SURFACE_GROUND[fill]), 'data-cut': corner }, g);
+    const d = cutPath(corner, ox, oy);
+    if (!notches.some((n) => n.corner === corner)) {
+      el('path', { d, fill: groundFill(SURFACE_GROUND[fill]), 'data-cut': corner }, g);
+    }
     if (beach !== null) el('path', { d, fill: SPILLS[beach].colour, opacity: SPILLS[beach].opacity, 'data-cut': corner }, g);
   }
   const f = el('g', { 'data-feature': featureName(tile, ground) }, g);
@@ -1209,6 +1246,12 @@ export function renderBoard(svg, state, view) {
   // aimed dens drawn as pictures, over every piece.
   const grounds = groundGrid(state);
   const scene = pieceScene(state);
+  // The grass field, once under the whole board: grass tiles leave their
+  // ground unfilled to show it (see drawTile).
+  el('rect', {
+    x: 0, y: 0, width: state.width * TILE, height: state.height * TILE,
+    fill: groundFill(SURFACE_GROUND.grass), 'data-layer': 'grass',
+  }, svg);
   for (let y = 0; y < state.height; y += 1) {
     for (let x = 0; x < state.width; x += 1) {
       const tile = state.tiles[y][x];
