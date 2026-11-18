@@ -171,6 +171,8 @@ export const DEN_LOST_TEXT = 'Den lost!';
  */
 const ACTION_STEP = Object.freeze({
   dig: 'dirt',
+  // The badger's Fill (trial rule badgerEarthworks) throws earth in as a dig throws it out.
+  fill: 'dirt',
   build: null,
   mow: 'sweep',
   saw: 'sweep',
@@ -390,7 +392,7 @@ function layOut(events, tileKind) {
       /** @type {'sink'|'drop'|'topple'|'spread'|'crack'|'crumble'|'swap'} */
       let kind = 'swap';
       if (to === 'habitatDamaged') kind = 'crack';
-      else if (wasHabitat || from === 'dam') kind = 'crumble';
+      else if (wasHabitat || from === 'dam' || from === 'earthbank') kind = 'crumble';
       else if (to === 'hole') kind = 'sink';
       else if (to === 'dam') kind = 'drop';
       else if (to === 'paving') kind = 'spread';
@@ -406,6 +408,9 @@ function layOut(events, tileKind) {
           start, duration: DURATION.callout, event: i,
         });
       } else if (from === 'dam' && to === 'water') {
+        add({ kind: 'splash', band: null, at: copy(event.at), start, duration: DURATION.splash, event: i });
+      } else if (from === 'water' && to === 'ford') {
+        // A shoved stone drops into the water (trial rule bearShovesStones).
         add({ kind: 'splash', band: null, at: copy(event.at), start, duration: DURATION.splash, event: i });
       }
     } else if (event.kind === 'push') {

@@ -65,5 +65,5 @@ test('no campaign level sets a trial rule, a roster or a bench exception', () =>
 });
 
 test('every trial rule id is a key the Rules type knows', () => {
-  assert.deepEqual([...TRIAL_RULE_IDS], ['woodOnlyGrowth', 'snakeBodies']);
+  assert.deepEqual([...TRIAL_RULE_IDS], ['woodOnlyGrowth', 'snakeBodies', 'foxDash', 'beaverGnaw', 'bearShovesStones', 'badgerEarthworks']);
 });

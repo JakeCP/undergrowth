@@ -98,6 +98,16 @@ test('tileBlend: a higher surface spills onto a lower one, never the other way',
   assert.deepEqual(tileBlend(g, 1, 1).spills, [{ side: 'n', from: 'paving' }]);
 });
 
+test('tileBlend: where two paving tiles touch only by a corner, the stubble runs between them', () => {
+  // Rounding all four corners of the crossing left a pinched bow tie.
+  const g = groundGrid(makeState(['_#', '#_'], []));
+  assert.deepEqual(tileBlend(g, 1, 0).cuts, [{ corner: 'sw', fill: 'stubble', beach: 'paving' }], 'the paving is rounded off');
+  assert.deepEqual(tileBlend(g, 0, 1).cuts, [{ corner: 'ne', fill: 'stubble', beach: 'paving' }]);
+  assert.deepEqual(tileBlend(g, 0, 0).cuts, [], 'the stubble keeps its corner, so it joins across');
+  assert.deepEqual(tileBlend(g, 1, 1).cuts, []);
+  assert.deepEqual(tileBlend(g, 0, 0).fades, [], 'and takes no extra fade there');
+});
+
 test('showGrid: the grid shows only during move or target selection', () => {
   const base = { selected: null, highlights: [], highlightKind: null, ghost: null };
   assert.equal(showGrid(base), false, 'nothing selected');

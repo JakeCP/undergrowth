@@ -2,15 +2,23 @@
 /** @typedef {'N'|'E'|'S'|'W'} Dir */
 // A shot's direction: the four, or a diagonal. Walking and pushing stay four-way (Dir).
 /** @typedef {Dir|'NE'|'SE'|'SW'|'NW'} ShotDir */
-/** @typedef {'open'|'forest'|'stubble'|'paving'|'water'|'hole'|'dam'|'stones'|'habitat'|'habitatDamaged'} TerrainKind */
+// `earthbank`: a raised bank of earth (grid letter B). Nothing walks it, animal or bot; fliers pass
+// over. Under the trial rule badgerEarthworks the badger's Dig levels it to open ground.
+// `ford`: water or a hole a shoved stone has filled (trial rule bearShovesStones; grid letter F for
+// one over water). Everyone walks it; nothing digs, cuts or gnaws it. Its `under` says what it filled.
+/** @typedef {'open'|'forest'|'stubble'|'paving'|'water'|'hole'|'dam'|'stones'|'habitat'|'habitatDamaged'|'earthbank'|'ford'} TerrainKind */
 /** @typedef {{kind: TerrainKind, variant: 'grass'|'flowers'|'mushrooms'|null, under: 'water'|'hole'|null}} Tile */
 /** @typedef {'us'|'bots'} Side */
 // `shot`: a strike along a lane that anything solid stops (see lanes.js); it hits bands only.
 // `crush`: a strike on the next tile that hits bands only; with nobody there it does nothing.
-/** @typedef {'attack'|'dig'|'build'|'mow'|'saw'|'pave'|'shot'|'crush'} Effect */
+// `gnaw` (trial rule beaverGnaw): the dam struck and every dam joined to it fall back into what is
+// under them (js/engine/works.js). `fill` (trial rule badgerEarthworks): a hole becomes open ground.
+/** @typedef {'attack'|'dig'|'build'|'mow'|'saw'|'pave'|'shot'|'crush'|'gnaw'|'fill'} Effect */
 // `fromTail`: the action may also be made from the band's last cell, not only its head (the badger's dig).
 // `dirs`: the directions a shot may take, 4 (rows and columns) or 8 (diagonals too). Absent means 4.
-/** @typedef {{id: string, label: string, effect: Effect, damage: number, minRange: number, maxRange: number, pattern: 'single'|'line3', push: number, fromTail?: boolean, dirs?: 4|8}} ActionDef */
+// `rule`: the action exists only while this trial rule is on (actionsFor in units.js).
+// `movesStones`: under the trial rule bearShovesStones it may also aim at stones, and shove them.
+/** @typedef {{id: string, label: string, effect: Effect, damage: number, minRange: number, maxRange: number, pattern: 'single'|'line3', push: number, fromTail?: boolean, dirs?: 4|8, rule?: keyof Rules, movesStones?: boolean}} ActionDef */
 /** @typedef {{minLen: number, name: string, grants: ActionDef[]}} Tier */
 // Bot types that strike the next tile also carry `reach` (speed + 1: walk `speed` tiles, strike the next) and may be `alwaysEngaged`.
 // An animal type with `passThrough` (the bees) may walk through tiles other bands stand on, so long as
@@ -19,7 +27,7 @@
 // A bot type's `mind` names the thinking it runs (see bots.js), so two types can share one.
 // `regrows: false`: a bot whose wounds stay; it never grows back as it walks. Absent means it does.
 /** @typedef {'hunter'|'harvester'|'planter'|'stalker'|'sentry'|'coil'} Mind */
-/** @typedef {{id: string, name: string, side: Side, glyph: string, speed: number, flies: boolean, startLen: number, maxLenCap: number, actions: ActionDef[], tiers: Tier[], price: number|null, recruitBase: number, reach?: number, alwaysEngaged?: boolean, passThrough?: boolean, bristle?: number, mind?: Mind, regrows?: boolean}} BandType */
+/** @typedef {{id: string, name: string, side: Side, glyph: string, speed: number, flies: boolean, startLen: number, maxLenCap: number, actions: ActionDef[], tiers: Tier[], price: number|null, recruitBase: number, reach?: number, alwaysEngaged?: boolean, passThrough?: boolean, bristle?: number, dash?: number, mind?: Mind, regrows?: boolean}} BandType */
 // A bot's plan: the tiles its head will walk (may be empty), then the tile it will strike.
 /** @typedef {{path: Pos[], strike: Pos|null, actionId: string|null}} Plan */
 // `fresh`: an animal band still on its first march out of camp. It grows on any tile until it first
@@ -28,14 +36,18 @@
 /** @typedef {{at: Pos, kind: 'permit'|'stake', captured: boolean}} Objective */
 /** @typedef {'capture'|'clear'|'rescue'} Goal */
 /** @typedef {'habitat'|'wiped'|'turns'|'rescue'} LostReason */
-/** @typedef {{kind: 'move', band: string, path: Pos[]} | {kind: 'act', band: string, action: string, target: Pos} | {kind: 'end'}} Move */
+/** @typedef {{kind: 'move', band: string, path: Pos[], dash?: boolean} | {kind: 'act', band: string, action: string, target: Pos} | {kind: 'end'}} Move */
 /** @typedef {{kind: 'moved', band: string, to: Pos} | {kind: 'falls', band: string, at: Pos, cause?: 'terrain'} | {kind: 'bumped', band: string, other: string|null}} PushOutcome */
-/** @typedef {{kind: 'move', band: string, path: Pos[], grow?: boolean[]} | {kind: 'action', actor: string, actionId: string, from: Pos, target: Pos} | {kind: 'damage', band: string, amount: number, wiped: boolean, cells: Pos[]} | {kind: 'terrain', at: Pos, from: TerrainKind, to: TerrainKind, cause: string} | {kind: 'push', outcome: PushOutcome} | {kind: 'capture', at: Pos} | {kind: 'pickup', at: Pos} | {kind: 'freed', band: string} | {kind: 'plan', band: string, plan: Plan|null}} BattleEvent */
+/** @typedef {{kind: 'move', band: string, path: Pos[], grow?: boolean[], dash?: boolean} | {kind: 'action', actor: string, actionId: string, from: Pos, target: Pos} | {kind: 'damage', band: string, amount: number, wiped: boolean, cells: Pos[], cause?: 'bridge'} | {kind: 'terrain', at: Pos, from: TerrainKind, to: TerrainKind, cause: string} | {kind: 'push', outcome: PushOutcome} | {kind: 'capture', at: Pos} | {kind: 'pickup', at: Pos} | {kind: 'freed', band: string} | {kind: 'plan', band: string, plan: Plan|null}} BattleEvent */
 // Trial rules a level may switch on, to try a rule out without changing how any other
 // level plays. `woodOnlyGrowth`: a band out of camp is never fresh, so it grows only on forest.
 // `snakeBodies`: a band may step (or be pushed) onto its own tile only if that tile is its tail
 // at that step and it does not grow on the step, so every body is one line that follows its head.
-/** @typedef {{woodOnlyGrowth?: boolean, snakeBodies?: boolean}} Rules */
+// `foxDash`: the fox may dash (js/engine/dash.js). The three earthworks rules (js/engine/works.js):
+// `beaverGnaw`: the beaver may Gnaw a dam, and the whole bridge it is part of falls.
+// `bearShovesStones`: the bear's Shove moves a stone one tile, or drops it into water or a hole as a ford.
+// `badgerEarthworks`: the badger may Fill a hole, and its Dig levels an earth bank.
+/** @typedef {{woodOnlyGrowth?: boolean, snakeBodies?: boolean, foxDash?: boolean, beaverGnaw?: boolean, bearShovesStones?: boolean, badgerEarthworks?: boolean}} Rules */
 /** @typedef {{levelId: string, width: number, height: number, tiles: Tile[][], bands: Band[], pickups: Pos[], objectives: Objective[], goal: Goal, turn: number, turnLimit: number|null, forestStart: number, habitatStart: number, pickupsTaken: number, outcome: 'won'|'lost'|null, lostReason: LostReason|null, events: BattleEvent[], rules: Rules}} BattleState */
 /** @typedef {{type: string, at: Pos}} Deployment */
 /** @typedef {{type: string, cells: Pos[]}} Placement */

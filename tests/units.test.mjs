@@ -68,7 +68,7 @@ test('every band type has every BandType field with the right shape', () => {
       assert.equal(typeof a.id, 'string', `${id} action`);
       assert.equal(typeof a.label, 'string', `${id}/${a.id}`);
       assert.ok(a.label.length > 0, `${id}/${a.id}`);
-      assert.ok(['attack', 'dig', 'build', 'mow', 'saw', 'pave', 'shot', 'crush'].includes(a.effect), `${id}/${a.id}`);
+      assert.ok(['attack', 'dig', 'build', 'mow', 'saw', 'pave', 'shot', 'crush', 'gnaw', 'fill'].includes(a.effect), `${id}/${a.id}`);
       assert.equal(typeof a.damage, 'number', `${id}/${a.id}`);
       assert.equal(typeof a.minRange, 'number', `${id}/${a.id}`);
       assert.equal(typeof a.maxRange, 'number', `${id}/${a.id}`);
@@ -132,14 +132,17 @@ test('base actions match the brief', () => {
       id: 'bite', label: 'Bite', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
     }, id);
   }
-  assert.deepEqual(BAND_TYPES.badger.actions.map((a) => a.id), ['dig', 'bite']);
+  // Fill and Gnaw are listed, but only a trial rule gives them (tests/earthworks.test.mjs).
+  assert.deepEqual(BAND_TYPES.badger.actions.map((a) => a.id), ['dig', 'bite', 'fill']);
+  assert.deepEqual(actionsFor('badger', 6).map((a) => a.id), ['dig', 'bite']);
   assert.deepEqual(action('badger', 'dig'), {
     id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, fromTail: true,
   });
   assert.deepEqual(action('badger', 'bite'), {
     id: 'bite', label: 'Bite', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
   });
-  assert.deepEqual(BAND_TYPES.beaver.actions.map((a) => a.id), ['build']);
+  assert.deepEqual(BAND_TYPES.beaver.actions.map((a) => a.id), ['build', 'gnaw']);
+  assert.deepEqual(actionsFor('beaver', 6).map((a) => a.id), ['build']);
   assert.deepEqual(action('beaver', 'build'), {
     id: 'build', label: 'Build', effect: 'build', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
   });
@@ -148,7 +151,7 @@ test('base actions match the brief', () => {
     id: 'maul', label: 'Maul', effect: 'attack', damage: 3, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
   });
   assert.deepEqual(action('bear', 'shove'), {
-    id: 'shove', label: 'Shove', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 1,
+    id: 'shove', label: 'Shove', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 1, movesStones: true,
   });
   assert.deepEqual(action('owl', 'strike'), {
     id: 'strike', label: 'Strike', effect: 'attack', damage: 2, minRange: 2, maxRange: 3, pattern: 'single', push: 0,

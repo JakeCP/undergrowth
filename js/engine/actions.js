@@ -4,12 +4,14 @@
 /** @typedef {import('./types.js').BattleState} BattleState */
 /** @typedef {import('./types.js').ActionDef} ActionDef */
 /** @typedef {import('./types.js').Effect} Effect */
+/** @typedef {import('./types.js').Rules} Rules */
 
 import { DIR_ORDER, DIRS, SHOT_DIR_ORDER, add, eq, inBounds, dirBetween, shotDirBetween } from './grid.js';
-import { dig, build, mow, pave, cut, isDeadly, isHabitat, strikeHabitat } from './terrain.js';
+import { dig, build, mow, pave, cut, clearBank, fill, isDeadly, isHabitat, strikeHabitat } from './terrain.js';
 import { bandById, occupantAt, damageBand, pushBand } from './band.js';
 import { actionsFor, BAND_TYPES } from './units.js';
 import { shotLane } from './lanes.js';
+import { earthworksOn, stoneShoveOn, canGnaw, gnawBridge, stoneShove, shoveStone } from './works.js';
 
 /**
  * Whether a bristly band hurts the bot whose strike of this kind hits it:
@@ -23,12 +25,27 @@ export function answeredByBristle(effect) {
 }
 
 /**
+ * The band's action with this id, under these trial rules (an action that
+ * needs a rule that is off is not found).
  * @param {Band} band
  * @param {string} actionId
+ * @param {Rules} [rules]
  * @returns {ActionDef|undefined}
  */
-export function findAction(band, actionId) {
-  return actionsFor(band.type, band.maxLen).find((a) => a.id === actionId);
+export function findAction(band, actionId, rules = {}) {
+  return actionsFor(band.type, band.maxLen, rules).find((a) => a.id === actionId);
+}
+
+/**
+ * What a dig does to this tile in this battle: `dig`, and under the trial
+ * rule badgerEarthworks an earth bank is levelled to open ground.
+ * @param {BattleState} state
+ * @param {Tile} tile
+ * @returns {Tile|null}
+ */
+function digIn(state, tile) {
+  if (tile.kind === 'earthbank') return earthworksOn(state) ? clearBank(tile) : null;
+  return dig(tile);
 }
 
 /**
@@ -75,7 +92,7 @@ export function actionTargets(state, bandId, actionId) {
   const result = [];
   const band = bandById(state, bandId);
   if (band === undefined || band.cells.length === 0) return result;
-  const action = findAction(band, actionId);
+  const action = findAction(band, actionId, state.rules);
   if (action === undefined) return result;
   for (const origin of actionOrigins(band, action)) {
     for (const pos of targetsFrom(state, band, action, origin)) {
@@ -105,16 +122,27 @@ function targetsFrom(state, band, action, head) {
       if (!inBounds(state, pos)) continue;
       const tile = state.tiles[pos[1]][pos[0]];
       if (action.effect === 'dig') {
-        if (dig(tile) === null) continue;
+        if (digIn(state, tile) === null) continue;
         if (occupantAt(state, pos) !== undefined) continue;
         if (state.objectives.some((o) => eq(o.at, pos))) continue;
         if (state.pickups.some((p) => eq(p, pos))) continue;
       } else if (action.effect === 'build') {
         if (build(tile) === null) continue;
         if (occupantAt(state, pos) !== undefined) continue;
+      } else if (action.effect === 'fill') {
+        if (fill(tile) === null) continue;
+        if (occupantAt(state, pos) !== undefined) continue;
+      } else if (action.effect === 'gnaw') {
+        if (!canGnaw(state, band, pos)) continue;
       } else if (action.effect === 'attack' && action.pattern === 'single') {
         const occupant = occupantAt(state, pos);
-        if (occupant === undefined) continue;
+        if (occupant === undefined) {
+          // A stone the bear can shove (trial rule bearShovesStones).
+          if (action.movesStones === true && stoneShoveOn(state) && stoneShove(state, head, pos) !== null) {
+            result.push(pos);
+          }
+          continue;
+        }
         if (occupant.side === band.side) continue;
       }
       result.push(pos);
@@ -174,7 +202,15 @@ export function resolveAction(state, band, action, target) {
   });
 
   if (action.effect === 'dig') {
-    applyTransform(state, target, dig, action.id);
+    applyTransform(state, target, (tile) => digIn(state, tile), action.id);
+    return;
+  }
+  if (action.effect === 'fill') {
+    applyTransform(state, target, fill, action.id);
+    return;
+  }
+  if (action.effect === 'gnaw') {
+    gnawBridge(state, target, action.id);
     return;
   }
   if (action.effect === 'build') {
@@ -245,7 +281,11 @@ export function resolveAction(state, band, action, target) {
   }
 
   const occupant = occupantAt(state, target);
-  if (occupant === undefined) return;
+  if (occupant === undefined) {
+    // No band there: under bearShovesStones a shove moves a stone.
+    if (action.movesStones === true && stoneShoveOn(state)) shoveStone(state, from, target, action.id);
+    return;
+  }
   const occupantId = occupant.id;
   damageBand(state, occupantId, action.damage);
   if (action.push > 0 && bandById(state, occupantId) !== undefined) {

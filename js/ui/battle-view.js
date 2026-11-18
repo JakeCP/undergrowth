@@ -36,7 +36,20 @@ import { BOT_SPEEDS } from '../campaign/progress.js';
 import { bandsWaiting, endTurnAsks, endTurnReady, turnStates } from './turn-state.js';
 import { focusKind, keyHint, keyListBox, takeKeys } from './keys.js';
 import { emblem } from './ui-kit.js';
-import { focusInfo, phoneStrip, STRIP_H, STRIP_LOG_H, STRIP_ROOM } from './battle-focus.js';
+import { focusInfo, phoneStrip, STRIP_H, STRIP_LOG_H, STRIP_ROOM, DASH_ID, DASH_HINT } from './battle-focus.js';
+import { dashOn, dashTiles } from '../engine/dash.js';
+import { bridgeAt, stoneShove, stoneShoveOn } from '../engine/works.js';
+
+export { DASH_ID, DASH_HINT };
+
+/**
+ * The message line over a dash tile (fox-dash spec).
+ * @param {string} name  The band's name, as its card shows it.
+ * @returns {string}
+ */
+export function DASH_HOVER(name) {
+  return `Dash here: the ${name.toLowerCase()} can't bite this turn.`;
+}
 import { portraitSpec, portraitFor, portraitSvg, headCrop, headCropStyle } from './portraits.js';
 
 /**
@@ -192,7 +205,7 @@ export function keyList(state, view) {
   } else {
     for (const band of state.bands) {
       if (band.side !== 'us') continue;
-      for (const def of actionsFor(band.type, band.maxLen)) {
+      for (const def of actionsFor(band.type, band.maxLen, state.rules)) {
         if (!actions.some((a) => a.id === def.id)) actions.push({ id: def.id, label: def.label });
       }
     }
@@ -337,7 +350,7 @@ export function offeredAction(state, bandId) {
   const band = bandById(state, bandId);
   if (band === undefined || band.side !== 'us' || band.trapped || !band.moved || band.acted) return null;
   if (band.cells.length === 0) return null;
-  for (const def of actionsFor(band.type, band.maxLen)) {
+  for (const def of actionsFor(band.type, band.maxLen, state.rules)) {
     if (def.effect !== 'attack') continue;
     const hits = actionTargets(state, bandId, def.id).some((target) => strikeArea(state, bandId, def.id, target)
       .some((at) => {
@@ -381,7 +394,11 @@ export function offeredAction(state, bandId) {
  * when an action is chosen, so the pop-up placed from them stays put.
  * `friends` is every tile one of the player's other bands stands on: a
  * tap there, further down a sting's line, picks that band (see tapAction).
- * @typedef {{bandId: string, mode: 'direct'|'menu', popup: boolean, options: ActionOption[], actionId: string|null, moves: Map<string, Pos[]>, targets: TargetPreview[], avoid: Pos[], reach: Pos[], friends: Pos[]}} SelectionView
+ * `dashes` (the trial rule foxDash) is every tile the band can dash to now
+ * beyond its walk, with the path: shown with the moves, or alone when
+ * Dash is chosen (`actionId` DASH_ID). The Dash option is listed last
+ * whenever the rule gives the band a dash, greyed once it cannot.
+ * @typedef {{bandId: string, mode: 'direct'|'menu', popup: boolean, options: ActionOption[], actionId: string|null, moves: Map<string, Pos[]>, targets: TargetPreview[], avoid: Pos[], reach: Pos[], friends: Pos[], dashes: Map<string, Pos[]>}} SelectionView
  */
 /** @typedef {{x: number, y: number, side: 'N'|'E'|'S'|'W', outside: boolean, arrow: number|null}} PopupPlace */
 
@@ -462,7 +479,10 @@ export function outcomeBadges(before, after, only = null) {
  * Every tile an action aimed at `at` strikes, in order from `at`. The
  * bees' sting ('line3') hits `at` and the two tiles beyond it, going away
  * from the head, as js/engine/actions.js resolves it; the board edge cuts
- * the line short. Any other action strikes `at` alone.
+ * the line short. The beaver's Gnaw (trial rule beaverGnaw) strikes the
+ * whole bridge `at` is part of, and a shove at a stone (bearShovesStones)
+ * the stone's tile and the one it lands on. Any other action strikes `at`
+ * alone.
  * @param {BattleState} state
  * @param {string} bandId
  * @param {string} actionId
@@ -474,8 +494,18 @@ export function strikeArea(state, bandId, actionId, at) {
   const area = [[at[0], at[1]]];
   const band = bandById(state, bandId);
   if (band === undefined || band.cells.length === 0) return area;
-  const action = findAction(band, actionId);
-  if (action === undefined || action.pattern !== 'line3') return area;
+  const action = findAction(band, actionId, state.rules);
+  if (action === undefined) return area;
+  if (action.effect === 'gnaw') {
+    const bridge = bridgeAt(state, at);
+    return bridge.length > 0 ? bridge : area;
+  }
+  if (action.movesStones === true && stoneShoveOn(state) && occupantAt(state, at) === undefined) {
+    const shove = stoneShove(state, band.cells[0], at);
+    if (shove !== null) area.push([shove.to[0], shove.to[1]]);
+    return area;
+  }
+  if (action.pattern !== 'line3') return area;
   const dir = dirBetween(band.cells[0], at);
   if (dir === null) return area;
   let pos = at;
@@ -570,7 +600,7 @@ export function selectionView(state, bandId, chosen) {
   const paths = band.moved ? new Map() : reachable(state, bandId);
   const reach = [...paths.values()].map((path) => path[path.length - 1]);
 
-  const defs = actionsFor(band.type, band.maxLen);
+  const defs = actionsFor(band.type, band.maxLen, state.rules);
   const targetsOf = defs.map((def) => actionTargets(state, bandId, def.id));
   /** @type {Map<string, Pos>} */
   const avoid = new Map();
@@ -600,20 +630,35 @@ export function selectionView(state, bandId, chosen) {
     enabled: targetsOf[index].length > 0,
     chosen: !direct && def.id === actionId,
   }));
+  const popup = !direct && options.some((option) => option.enabled);
+
+  // The fox's dash (trial rule foxDash): an option of its own, after the
+  // actions, that never makes a band choose before it taps.
+  const dashes = dashTiles(state, bandId);
+  const dashing = chosen === DASH_ID && dashes.size > 0;
+  if (dashOn(state) && (BAND_TYPES[band.type]?.dash ?? 0) > 0) {
+    options.push({ id: DASH_ID, label: 'Dash', enabled: dashes.size > 0, chosen: dashing });
+  }
+  if (dashing) {
+    for (const option of options) if (option.id !== DASH_ID) option.chosen = false;
+    actionId = DASH_ID;
+  }
+  const showMoves = !dashing && (direct || actionId === null);
 
   return {
     bandId,
     mode: direct ? 'direct' : 'menu',
-    popup: !direct && options.some((option) => option.enabled),
+    popup,
     options,
     actionId,
-    moves: direct || actionId === null ? paths : new Map(),
-    targets: actionId === null ? [] : previewTargets(state, bandId, actionId),
+    moves: showMoves ? paths : new Map(),
+    targets: actionId === null || dashing ? [] : previewTargets(state, bandId, actionId),
     avoid: [...avoid.values()],
     reach,
     friends: state.bands
       .filter((other) => other.side === 'us' && other.id !== bandId)
       .flatMap((other) => other.cells.map((cell) => /** @type {Pos} */ ([cell[0], cell[1]]))),
+    dashes: showMoves || dashing ? dashes : new Map(),
   };
 }
 
@@ -648,6 +693,8 @@ export function tapAction(view, pos) {
   }
   const path = view.moves.get(key(pos));
   if (path !== undefined) return { kind: 'move', band: view.bandId, path };
+  const run = view.dashes.get(key(pos));
+  if (run !== undefined) return { kind: 'move', band: view.bandId, path: run, dash: true };
   if (view.friends.some((cell) => eq(cell, pos))) return null;
   const along = view.actionId !== null ? targetAt(view.targets, pos) : undefined;
   if (view.actionId !== null && along !== undefined) {
@@ -667,10 +714,58 @@ export function selectionNote(state, view) {
   const band = bandById(state, view.bandId);
   if (band === undefined) return null;
   const who = `${tierFor(band.type, band.maxLen).name} ${band.cells.length}/${band.maxLen}`;
+  if (view.actionId === DASH_ID) return DASH_HINT;
   const option = view.options.find((o) => o.id === view.actionId);
   if (option === undefined || view.targets.length === 0) return who;
   const hint = `${option.label}: tap a target`;
   return view.mode === 'direct' ? `${who}. ${hint}` : hint;
+}
+
+/**
+ * What number key `n` chooses for the selected band: the id to hand to
+ * the pop-up's toggle, or null for nothing. A band chooses by number when
+ * it has the pop-up, or a Dash (trial rule foxDash). An action already
+ * chosen is not chosen again, except Dash, whose repeat press goes back
+ * to the usual view.
+ * @param {SelectionView} view
+ * @param {number} n
+ * @returns {string|null}
+ */
+export function numberChoice(view, n) {
+  if (view.mode !== 'menu' && !view.options.some((o) => o.id === DASH_ID)) return null;
+  const option = view.options[n - 1];
+  if (option === undefined || !option.enabled) return null;
+  if (option.chosen && option.id !== DASH_ID) return null;
+  return option.id;
+}
+
+/**
+ * Whether a tap on band `bandId` lets go of the selected band's chosen
+ * action (or moves its pop-up): a tap on the selected band itself, when it
+ * has the pop-up or has Dash chosen.
+ * @param {SelectionView} view
+ * @param {string} bandId
+ * @returns {boolean}
+ */
+export function tapLetsGo(view, bandId) {
+  return bandId === view.bandId && (view.mode === 'menu' || view.actionId === DASH_ID);
+}
+
+/**
+ * What hovering a dash tile shows: the run's result faded on the board,
+ * and the line saying what it costs. Null off the dash tiles.
+ * @param {BattleState} state
+ * @param {SelectionView} view
+ * @param {Pos} pos
+ * @returns {TargetPreview|null}
+ */
+export function dashPreview(state, view, pos) {
+  const path = view.dashes.get(key(pos));
+  const band = bandById(state, view.bandId);
+  if (path === undefined || band === undefined) return null;
+  const ghost = applyMove(state, { kind: 'move', band: view.bandId, path, dash: true });
+  const text = DASH_HOVER(tierFor(band.type, band.maxLen).name);
+  return { at: [pos[0], pos[1]], badges: [], strikes: [], text, ghost };
 }
 
 /**
@@ -1415,7 +1510,7 @@ export function mountBattle(root, opts) {
       selected = null;
       chosen = null;
     } else {
-      chosen = view.mode === 'menu' ? view.actionId : null;
+      chosen = view.mode === 'menu' || view.actionId === DASH_ID ? view.actionId : null;
     }
     hover = null;
     hoverKey = null;
@@ -1435,7 +1530,9 @@ export function mountBattle(root, opts) {
     const found = pos !== null && view !== null && !view.moves.has(key(pos))
       ? targetAt(view.targets, pos)
       : undefined;
-    const next = found !== undefined ? found : null;
+    const next = found !== undefined
+      ? found
+      : pos !== null && view !== null ? dashPreview(state, view, pos) : null;
     if (next === hover) return;
     hover = next;
     drawBoard();
@@ -1510,6 +1607,7 @@ export function mountBattle(root, opts) {
       selected,
       highlights: [...view.moves.values()].map((path) => path[path.length - 1]),
       highlightKind: 'move',
+      dashes: [...view.dashes.values()].map((path) => path[path.length - 1]),
       ghost: hover !== null ? hover.ghost : null,
       targets: view.targets.map((target) => ({ at: target.at, badges: target.badges, strikes: target.strikes })),
     });
@@ -2025,8 +2123,9 @@ export function mountBattle(root, opts) {
     // Acting ends the band's turn, so let go of it. After a move it
     // stays selected, ready to act, with the attack that can hit an enemy
     // from where it now stands already chosen: one tap attacks.
-    if (move.kind === 'act') selected = null;
-    chosen = move.kind === 'move' ? offeredAction(next, move.band) : null;
+    // A dash ends the band's turn as an action does.
+    if (move.kind === 'act' || (move.kind === 'move' && move.dash === true)) selected = null;
+    chosen = move.kind === 'move' && move.dash !== true ? offeredAction(next, move.band) : null;
     popupHidden = false;
     peek = null;
     refreshView();
@@ -2206,7 +2305,7 @@ export function mountBattle(root, opts) {
       // or move the pop-up out of the way of the tiles under it (and
       // bring it back on the next tap).
       const band = occupantAt(state, pos);
-      if (band !== undefined && band.id === view.bandId && view.mode === 'menu') {
+      if (band !== undefined && tapLetsGo(view, band.id)) {
         if (chosen !== null) chosen = null;
         else if (view.popup) popupHidden = !popupHidden;
         refreshView();
@@ -2300,10 +2399,9 @@ export function mountBattle(root, opts) {
    * @returns {void}
    */
   function chooseByNumber(n) {
-    if (!idle() || view === null || view.mode !== 'menu') return;
-    const option = view.options[n - 1];
-    if (option === undefined || !option.enabled || option.chosen) return;
-    chooseAction(option.id);
+    if (!idle() || view === null) return;
+    const id = numberChoice(view, n);
+    if (id !== null) chooseAction(id);
   }
 
   /**

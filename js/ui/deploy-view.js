@@ -331,7 +331,7 @@ export function renderDeploy(root, opts) {
    * @returns {HTMLElement}
    */
   function buildCard(type, form, extras) {
-    const card = renderUnitCard(unitCard(type, lengthOf(type)), form === 'brief' ? { compact: true } : { next: false });
+    const card = renderUnitCard(unitCard(type, lengthOf(type), level.rules ?? {}), form === 'brief' ? { compact: true } : { next: false });
     if (form === 'brief') {
       const more = html('button', 'deploy-panel__more', 'Full card');
       more.type = 'button';
@@ -475,7 +475,7 @@ export function renderDeploy(root, opts) {
     box.setAttribute('aria-label', `${nameOf(type)}: the full card`);
     const inner = html('div', 'deploy-sheet__inner');
     box.appendChild(inner);
-    const card = renderUnitCard(unitCard(type, lengthOf(type)), { next: false });
+    const card = renderUnitCard(unitCard(type, lengthOf(type), level.rules ?? {}), { next: false });
     const close = html('button', 'deploy-sheet__close ui-btn-round', '×');
     close.type = 'button';
     close.setAttribute('aria-label', 'Close the card');

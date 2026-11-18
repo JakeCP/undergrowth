@@ -274,36 +274,59 @@ const grassField = groundPattern(SURFACE_GROUND.grass);
 if (grassField.layers.length > 0) fieldBake.prepare(grassField);
 
 // The test ground (lab/): a developer's screen for trying any level
-// under trial rules, opened by ending the address with #lab. The public
-// build has no lab/ (scripts/export-public.sh) and it is never precached
-// (sw.js), so it is loaded only when asked for. The paths are held here
-// and handed to import() as variables, not written inside import(...),
-// so tsc does not try to resolve them in a copy that has no lab/.
+// under trial rules, opened by ending the address with #lab. #alt opens
+// the same screen with only Alt 1-5 (lab/alt/), the redesigned first five
+// rounds, to be played in order: winning one goes on to the next. The
+// public build has no lab/ (scripts/export-public.sh) and it is never
+// precached (sw.js), so it is loaded only when asked for. The paths are
+// held here and handed to import() as variables, not written inside
+// import(...), so tsc does not try to resolve them in a copy that has no lab/.
 const LAB_HASH = '#lab';
+const ALT_HASH = '#alt';
 const LAB_MODULE = '../lab/lab.js';
 const LAB_LEVELS_MODULE = '../lab/levels/index.js';
-
-/** True from the moment the test ground is asked for until it is left. */
-let labShowing = false;
+const ALT_LEVELS_MODULE = '../lab/alt/index.js';
 
 /**
- * Opens the test ground over whatever is on screen. If it cannot be
- * loaded (the public build), the title shows instead.
+ * Which test ground an address asks for: 'lab', 'alt', or null for none.
+ * @param {string} hash
+ * @returns {'lab'|'alt'|null}
+ */
+function labModeFor(hash) {
+  if (hash === LAB_HASH) return 'lab';
+  if (hash === ALT_HASH) return 'alt';
+  return null;
+}
+
+/**
+ * The test ground showing, or being loaded, from the moment it is asked
+ * for until it is left: 'lab' or 'alt'; null when it is not.
+ * @type {'lab'|'alt'|null}
+ */
+let labShowing = null;
+
+/**
+ * Opens the test ground over whatever is on screen: all of it ('lab') or
+ * Alt 1-5 alone ('alt'). If it cannot be loaded (the public build), the
+ * title shows instead.
+ * @param {'lab'|'alt'} mode
  * @returns {void}
  */
-function showLab() {
-  labShowing = true;
+function showLab(mode) {
+  labShowing = mode;
   // Nothing of the screen it replaces carries on under it: not the title
   // theme, and not that screen's keys (the list takes none of its own).
   music.stop();
   takeKeys(() => {});
-  Promise.all([import(LAB_MODULE), import(LAB_LEVELS_MODULE)])
-    .then(([lab, labLevels]) => {
-      // Left again before it had loaded.
-      if (!labShowing) return;
+  Promise.all([import(LAB_MODULE), import(LAB_LEVELS_MODULE), import(ALT_LEVELS_MODULE)])
+    .then(([lab, labLevels, altLevels]) => {
+      // Left again, or switched to the other one, before it had loaded.
+      if (labShowing !== mode) return;
       lab.openLab(app, {
         levels: LEVELS,
         labLevels: labLevels.LAB_LEVELS,
+        altLevels: altLevels.ALT_LEVELS,
+        ...(mode === 'alt' ? { only: 'alt' } : {}),
         settings: () => ({ botSpeed: progress.botSpeed ?? 'normal', soundOn: progress.soundOn === true }),
         sound,
         // The battle's settings control, as in showDeploy: the only thing
@@ -321,25 +344,27 @@ function showLab() {
     })
     .catch((err) => {
       console.error(err);
-      if (labShowing) leaveLab();
+      if (labShowing === mode) leaveLab();
     });
 }
 
 /** Leaves the test ground for the title, as on a cold start. */
 function leaveLab() {
-  labShowing = false;
+  labShowing = null;
   showTitle();
 }
 
 window.addEventListener('hashchange', () => {
-  if (location.hash === LAB_HASH) {
-    if (!labShowing) showLab();
-  } else if (labShowing) {
+  const mode = labModeFor(location.hash);
+  if (mode !== null) {
+    if (labShowing !== mode) showLab(mode);
+  } else if (labShowing !== null) {
     leaveLab();
   }
 });
 
-if (location.hash === LAB_HASH) showLab();
+const openingLab = labModeFor(location.hash);
+if (openingLab !== null) showLab(openingLab);
 else showTitle();
 
 try { navigator.serviceWorker?.register('sw.js')?.catch(() => {}); } catch {}

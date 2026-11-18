@@ -19,6 +19,7 @@
 import { actionsFor } from '../engine/units.js';
 import { actionTargets } from '../engine/actions.js';
 import { reachable } from '../engine/band.js';
+import { dashTiles } from '../engine/dash.js';
 
 /**
  * One band's turn state, or null for a band that takes no turn of the
@@ -30,9 +31,9 @@ import { reachable } from '../engine/band.js';
 export function bandTurnState(state, band) {
   if (band.side !== 'us' || band.trapped || band.cells.length === 0) return null;
   if (band.acted) return 'done';
-  const hasTarget = actionsFor(band.type, band.maxLen)
+  const hasTarget = actionsFor(band.type, band.maxLen, state.rules)
     .some((action) => actionTargets(state, band.id, action.id).length > 0);
-  if (!band.moved) return hasTarget || reachable(state, band.id).size > 0 ? 'ready' : 'done';
+  if (!band.moved) return hasTarget || reachable(state, band.id).size > 0 || dashTiles(state, band.id).size > 0 ? 'ready' : 'done';
   return hasTarget ? 'canAct' : 'done';
 }
 

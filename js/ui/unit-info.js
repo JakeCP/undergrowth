@@ -129,17 +129,25 @@ const PUSH_RESULT = 'Pushed into water or a hole, a bot is gone.';
 
 /**
  * One plain sentence (or two) for what an action does, from its numbers.
+ * Under the earthworks trial rules (js/engine/works.js) the badger's dig
+ * and the bear's shove say what more they do.
  * @param {ActionDef} action
+ * @param {import('../engine/types.js').Rules} [rules]
  * @returns {string}
  */
-export function actionSentence(action) {
+export function actionSentence(action, rules = {}) {
   const where = whereText(action);
   const damage = `${action.damage} damage`;
   switch (action.effect) {
     case 'dig': {
       const from = action.fromTail === true ? `${where === 'next to it' ? 'next to its head or its tail end' : where}` : where;
-      return `Digs open ground, stubble or forest ${from} into a hole, or breaks a dam there. Only fliers cross a hole.`;
+      const bank = rules.badgerEarthworks === true ? ' It levels an earth bank to open ground.' : '';
+      return `Digs open ground, stubble or forest ${from} into a hole, or breaks a dam there. Only fliers cross a hole.${bank}`;
     }
+    case 'fill':
+      return `Fills a hole ${where} with earth, so bands and bots can walk on it.`;
+    case 'gnaw':
+      return `Gnaws through a dam ${where}: the whole bridge falls. Whoever stands on it drowns, or loses every tile behind the break.`;
     case 'build':
       return `Builds a dam on water or a hole ${where}, so bands can walk across.`;
     case 'mow':
@@ -163,6 +171,9 @@ export function actionSentence(action) {
     return `Deals ${damage} to every band in a line of ${lineLength(action.pattern)} tiles, ${start}. Your own bands too.`;
   }
   const push = count(action.push, 'tile', 'tiles');
+  if (action.movesStones === true && rules.bearShovesStones === true) {
+    return `Deals ${damage} to an enemy ${where} and pushes it ${push} away. ${PUSH_RESULT} It shoves stones too: one tile on, or into water or a hole to make a ford.`;
+  }
   if (action.push > 0 && action.damage === 0) {
     return `Pushes an enemy ${where} ${push} away, with no damage. ${PUSH_RESULT}`;
   }
@@ -174,10 +185,11 @@ export function actionSentence(action) {
 
 /**
  * @param {ActionDef} action
+ * @param {import('../engine/types.js').Rules} [rules]
  * @returns {ActionLine}
  */
-function actionLine(action) {
-  return { id: action.id, label: action.label, sentence: actionSentence(action) };
+function actionLine(action, rules = {}) {
+  return { id: action.id, label: action.label, sentence: actionSentence(action, rules) };
 }
 
 /**
@@ -248,17 +260,31 @@ export function tierSteps(typeId, maxLen) {
     name: tier.name,
     minLen: tier.minLen,
     reached: tier.minLen <= maxLen,
-    gains: tier.grants.map(actionLine),
+    gains: tier.grants.map((a) => actionLine(a)),
   }));
 }
 
 /**
+ * The dash in words (trial rule foxDash, js/engine/dash.js), from the
+ * type's speed and its dash.
+ * @param {string} typeId
+ * @returns {string}
+ */
+export function dashSentence(typeId) {
+  const def = BAND_TYPES[typeId];
+  return `Runs up to ${def.speed + (def.dash ?? 0)} tiles instead of ${def.speed}, but cannot bite that turn.`;
+}
+
+/**
  * Everything a unit card shows for a band type at this maximum length.
+ * Under the trial rule foxDash a type with a dash lists it after its
+ * actions.
  * @param {string} typeId
  * @param {number} maxLen
+ * @param {import('../engine/types.js').Rules} [rules]
  * @returns {UnitCard}
  */
-export function unitCard(typeId, maxLen) {
+export function unitCard(typeId, maxLen, rules = {}) {
   const def = BAND_TYPES[typeId];
   const len = Math.min(maxLen, def.maxLenCap);
   return {
@@ -270,7 +296,10 @@ export function unitCard(typeId, maxLen) {
     lengthNow: len,
     lengthMax: def.maxLenCap,
     role: roleLine(typeId),
-    actions: actionsFor(typeId, len).map(actionLine),
+    actions: [
+      ...actionsFor(typeId, len, rules).map((a) => actionLine(a, rules)),
+      ...(rules.foxDash === true && (def.dash ?? 0) > 0 ? [{ id: 'dash', label: 'Dash', sentence: dashSentence(typeId) }] : []),
+    ],
     traits: traits(typeId),
     traitLines: traitLines(typeId),
     next: tierSteps(typeId, len).find((t) => !t.reached) ?? null,

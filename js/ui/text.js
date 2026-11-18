@@ -71,6 +71,7 @@ function terrainWord(kind) {
   if (kind === 'open') return 'ground';
   if (kind === 'habitat') return 'den';
   if (kind === 'habitatDamaged') return 'damaged den';
+  if (kind === 'earthbank') return 'earth bank';
   return kind;
 }
 
@@ -243,6 +244,7 @@ function bumpedInto(state, events, i, bandId) {
   const kind = state.tiles[y][x].kind;
   if (kind === 'forest') return 'the forest';
   if (kind === 'stones') return 'the stones';
+  if (kind === 'earthbank') return 'the bank';
   if (kind === 'habitat' || kind === 'habitatDamaged') return 'the den';
   return 'the edge';
 }
@@ -257,7 +259,13 @@ export function describeEvents(state, events) {
   const sentences = [];
   for (let i = 0; i < events.length; i += 1) {
     const event = events[i];
-    if (event.kind === 'move' || event.kind === 'action' || event.kind === 'plan') {
+    if (event.kind === 'move' && event.dash === true) {
+      sentences.push(`${bandName(state, event.band)} dashes`);
+    } else if (event.kind === 'action' && event.actionId === 'gnaw') {
+      // The beaver's Gnaw (trial rule beaverGnaw): one sentence for the
+      // whole bridge; its tiles' own terrain events say nothing more.
+      sentences.push(`${bandName(state, event.actor)} gnaws through the bridge and it falls`);
+    } else if (event.kind === 'move' || event.kind === 'action' || event.kind === 'plan') {
       continue;
     } else if (event.kind === 'damage') {
       const next = events[i + 1];
@@ -272,6 +280,10 @@ export function describeEvents(state, events) {
       }
       const name = bandName(state, event.band);
       const lose = isPlural(name) ? 'lose' : 'loses';
+      if (event.cause === 'bridge') {
+        sentences.push(`${name} ${isPlural(name) ? 'are' : 'is'} cut off as the bridge falls and ${lose} ${event.amount}`);
+        continue;
+      }
       const base = `${name} ${lose} ${event.amount}`;
       const said = event.wiped ? `${base} and ${isPlural(name) ? 'are' : 'is'} wiped out` : base;
       sentences.push(shieldsDen(state, events, i) ? `${said}, shielding the den` : said);
@@ -281,7 +293,13 @@ export function describeEvents(state, events) {
         const striker = strikerOf(state, events, i, event.at);
         sentences.push(striker !== null ? `${striker} tears into the den` : 'A den is struck');
         sentences.push(event.to === 'habitatDamaged' ? "Den damaged — one more hit and it's gone" : 'The den is lost');
-      } else if (event.from === 'dam' && event.to === 'water') sentences.push('The dam is cut and the water flows');
+      } else if (event.cause === 'gnaw') continue;
+      else if (event.from === 'stones') sentences.push('A stone is shoved');
+      else if (event.to === 'stones') continue;
+      else if (event.to === 'ford') sentences.push(`The stone fills the ${event.from === 'hole' ? 'hole' : 'water'}: a ford to walk on`);
+      else if (event.from === 'earthbank') sentences.push('The earth bank is dug away');
+      else if (event.from === 'hole' && event.to === 'open') sentences.push('The hole is filled in');
+      else if (event.from === 'dam' && event.to === 'water') sentences.push('The dam is cut and the water flows');
       else if (event.to === 'hole') sentences.push('A hole is dug');
       else if (event.to === 'dam') sentences.push('A dam is built');
       else if (event.to === 'stubble') sentences.push('Forest is mown to stubble');

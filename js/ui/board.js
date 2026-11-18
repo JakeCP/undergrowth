@@ -9,7 +9,7 @@
 /**
  * What to draw besides the state. `marks: false` leaves out the marks for
  * what each band has left this turn (the deploy screen has no turn yet).
- * @typedef {{selected: string|null, highlights: Pos[], highlightKind: 'move'|'target'|'deploy'|null, ghost: BattleState|null, targets?: Array<BoardTarget>, marks?: boolean}} BoardView
+ * @typedef {{selected: string|null, highlights: Pos[], highlightKind: 'move'|'target'|'deploy'|null, ghost: BattleState|null, targets?: Array<BoardTarget>, marks?: boolean, dashes?: Pos[]}} BoardView
  */
 /**
  * A target on the board: the tile a tap aims at, its badges, and (for an
@@ -462,6 +462,119 @@ function drawDen(f, ox, oy, damaged, aimed, now) {
 }
 
 /**
+ * Which sides of an earth bank another earth bank joins.
+ * @typedef {{n: boolean, e: boolean, s: boolean, w: boolean}} BankJoins
+ */
+
+/** @type {BankJoins} */
+const NO_JOINS = Object.freeze({ n: false, e: false, s: false, w: false });
+
+/**
+ * The sides of the tile at (x, y) where an earth bank stands next to it.
+ * @param {BattleState} state
+ * @param {number} x
+ * @param {number} y
+ * @returns {BankJoins}
+ */
+function bankJoins(state, x, y) {
+  /** @param {number} dx @param {number} dy */
+  const bank = (dx, dy) => state.tiles[y + dy]?.[x + dx]?.kind === 'earthbank';
+  return { n: bank(0, -1), e: bank(1, 0), s: bank(0, 1), w: bank(-1, 0) };
+}
+
+/**
+ * An earth bank (grid B): a low, grass-topped ridge of earth, its foot in
+ * a soft shadow. It runs on to the tile's edge wherever another bank
+ * joins it, so a row or a column of them reads as one bank, not a string
+ * of molehills. No outline: it is shaded, not boxed.
+ * @param {Element} f
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} x
+ * @param {number} y
+ * @param {BankJoins} joins
+ * @returns {void}
+ */
+function drawEarthBank(f, ox, oy, x, y, joins) {
+  // A bank that runs north and south only is a narrower ridge.
+  const upright = (joins.n || joins.s) && !joins.e && !joins.w;
+  const side = upright ? 6 : 2;
+  const left = ox + (joins.w ? 0 : side);
+  const right = ox + (joins.e ? TILE : TILE - side);
+  const top = oy + (joins.n ? 0 : 9);
+  const bottom = oy + (joins.s ? TILE : 34);
+  const mid = (left + right) / 2;
+  const R = upright ? 11 : 12;
+  // Rounded wherever nothing joins, so every free end is a soft mound.
+  const nw = joins.n || joins.w ? 0 : R;
+  const ne = joins.n || joins.e ? 0 : R;
+  const se = joins.s || joins.e ? 0 : 6;
+  const sw = joins.s || joins.w ? 0 : 6;
+  // The crown bulges a little above a free top edge.
+  const crown = joins.n ? `H${right - ne}` : `Q${mid} ${top - 4} ${right - ne} ${top}`;
+  const d = [
+    `M${left + nw} ${top}`, crown, `Q${right} ${top} ${right} ${top + ne}`,
+    `V${bottom - se}`, `Q${right} ${bottom} ${right - se} ${bottom}`,
+    `H${left + sw}`, `Q${left} ${bottom} ${left} ${bottom - sw}`,
+    `V${top + nw}`, `Q${left} ${top} ${left + nw} ${top}`, 'Z',
+  ].join(' ');
+  if (!joins.s) el('ellipse', { cx: mid + 1, cy: bottom + 1, rx: (right - left) / 2 + 1, ry: 4, fill: INK, opacity: 0.2 }, f);
+  el('path', { d, fill: SOIL_LIGHT }, f);
+  // The bank's face, shading darker toward its foot.
+  if (!joins.s) {
+    el('path', {
+      d: `M${left} ${bottom - 10} Q${mid} ${bottom - 13} ${right} ${bottom - 10} V${bottom - se} Q${right} ${bottom} ${right - se} ${bottom} H${left + sw} Q${left} ${bottom} ${left} ${bottom - sw} Z`,
+      fill: SOIL, opacity: 0.6,
+    }, f);
+  }
+  for (let i = 0; i < 3; i += 1) {
+    el('ellipse', {
+      cx: upright ? mid + off(x, y, 20 + i, -7, 14) : ox + off(x, y, 20 + i, 8, 24),
+      cy: oy + off(x, y, 23 + i, joins.s ? 20 : 23, 8), rx: 1.6, ry: 1.1, fill: SOIL_DARK, opacity: 0.5,
+    }, f);
+  }
+  // Grass along the crown: across the top, or down the spine of an upright bank.
+  if (upright) {
+    el('path', {
+      d: `M${mid} ${top + (joins.n ? 0 : 5)} V${bottom - (joins.s ? 0 : 12)}`,
+      stroke: GRASS_SHADE, 'stroke-width': 6, fill: 'none', 'stroke-linecap': 'round', opacity: 0.8,
+    }, f);
+    tuft(f, mid - 2, oy + off(x, y, 26, 12, 8));
+    tuft(f, mid + 2, oy + off(x, y, 27, 24, 6), GRASS_LIGHT);
+    return;
+  }
+  const capY = joins.n ? oy + 13 : top + 2;
+  el('path', {
+    d: `M${left + (joins.w ? 0 : 6)} ${capY + 1} Q${mid} ${capY - (joins.n ? 0 : 3)} ${right - (joins.e ? 0 : 6)} ${capY + 1}`,
+    stroke: GRASS_SHADE, 'stroke-width': 5, fill: 'none', 'stroke-linecap': 'round', opacity: 0.85,
+  }, f);
+  tuft(f, ox + off(x, y, 26, 9, 8), capY + 2);
+  tuft(f, ox + off(x, y, 27, 24, 8), capY + 2, GRASS_LIGHT);
+}
+
+/**
+ * A ford: flat stones laid in the water (or packed into a filled hole,
+ * on a soft patch of earth) that anyone can walk across.
+ * @param {Element} f
+ * @param {number} ox
+ * @param {number} oy
+ * @param {number} x
+ * @param {number} y
+ * @param {boolean} hole
+ * @returns {void}
+ */
+function drawFord(f, ox, oy, x, y, hole) {
+  if (hole) el('ellipse', { cx: ox + 20, cy: oy + 21, rx: 15, ry: 12, fill: SOIL, opacity: 0.55 }, f);
+  for (const [sx, sy, rx, ry] of [[12, 13, 6.5, 4], [27, 15, 6, 3.8], [18, 26, 7, 4.2], [31, 29, 5, 3.2], [8, 31, 4.2, 2.8]]) {
+    const cx = ox + sx + off(x, y, sx, -1, 2);
+    const cy = oy + sy + off(x, y, sy, -1, 2);
+    el('ellipse', { cx: cx + 1, cy: cy + 1.6, rx, ry: ry * 0.8, fill: hole ? INK : WATER_DEEP, opacity: hole ? 0.25 : 0.45 }, f);
+    el('ellipse', { cx, cy, rx, ry, fill: STONE }, f);
+    el('ellipse', { cx: cx - rx * 0.25, cy: cy - ry * 0.3, rx: rx * 0.55, ry: ry * 0.4, fill: STONE_LIGHT, opacity: 0.9 }, f);
+  }
+}
+
+/**
  * The code-drawn feature of one tile, into its <g data-feature>.
  * @param {Element} f
  * @param {Tile} tile
@@ -470,9 +583,10 @@ function drawDen(f, ox, oy, damaged, aimed, now) {
  * @param {number} y
  * @param {boolean} aimed
  * @param {number} now
+ * @param {BankJoins} [joins]
  * @returns {void}
  */
-function drawFeature(f, tile, ground, x, y, aimed, now) {
+function drawFeature(f, tile, ground, x, y, aimed, now, joins = NO_JOINS) {
   const ox = x * TILE;
   const oy = y * TILE;
   // Marks that only repeat a painted texture are left out (look.js).
@@ -560,6 +674,13 @@ function drawFeature(f, tile, ground, x, y, aimed, now) {
     case 'habitatDamaged':
       drawDen(f, ox, oy, tile.kind === 'habitatDamaged', aimed, now);
       return;
+    case 'earthbank':
+      drawEarthBank(f, ox, oy, x, y, joins);
+      return;
+    case 'ford':
+      if (tile.under !== 'hole') drawWater(f, ox, oy, x, y, Math.round(now));
+      drawFord(f, ox, oy, x, y, tile.under === 'hole');
+      return;
     default:
       return;
   }
@@ -590,9 +711,10 @@ function featureName(tile, ground) {
  * @param {boolean} aimed
  * @param {number} now
  * @param {import('./board-pieces.js').PieceScene} scene
+ * @param {BankJoins} [joins]  for an earth bank, the sides where another bank joins it
  * @returns {void}
  */
-function drawTile(parent, tile, grounds, x, y, aimed, now, scene) {
+function drawTile(parent, tile, grounds, x, y, aimed, now, scene, joins = NO_JOINS) {
   const g = el('g', { 'data-tile': `${x},${y}`, 'data-x': x, 'data-y': y }, parent);
   const ox = x * TILE;
   const oy = y * TILE;
@@ -637,7 +759,7 @@ function drawTile(parent, tile, grounds, x, y, aimed, now, scene) {
     if (beach !== null) el('path', { d, fill: SPILLS[beach].colour, opacity: SPILLS[beach].opacity, 'data-cut': corner }, g);
   }
   const f = el('g', { 'data-feature': featureName(tile, ground) }, g);
-  if (!drawTilePiece(f, tile, x, y, scene)) drawFeature(f, tile, ground, x, y, aimed, now);
+  if (!drawTilePiece(f, tile, x, y, scene)) drawFeature(f, tile, ground, x, y, aimed, now, joins);
 }
 
 /**
@@ -860,9 +982,11 @@ export function badgeSvg(icon) {
 /**
  * The attributes of a flat highlight on a tile, by kind: move tiles are
  * a cream wash, targets a rust wash with a cream frame, deploy tiles a
- * dashed cream frame. Bold and flat, so they read over any ground.
+ * dashed cream frame, and the fox's dash tiles (trial rule foxDash) a
+ * softer, cooler wash with no frame, plainly further out than its walk.
+ * Bold and flat, so they read over any ground.
  * @param {Pos} pos
- * @param {'move'|'target'|'deploy'} kind
+ * @param {'move'|'target'|'deploy'|'dash'} kind
  * @returns {Record<string, string|number>}
  */
 function highlightAttrs(pos, kind) {
@@ -875,6 +999,9 @@ function highlightAttrs(pos, kind) {
     attrs['fill-opacity'] = 0.34;
     attrs.stroke = CREAM;
     attrs['stroke-width'] = 1.6;
+  } else if (kind === 'dash') {
+    attrs.fill = WATER_LIGHT;
+    attrs['fill-opacity'] = 0.24;
   } else if (kind === 'target') {
     attrs.fill = RUST;
     attrs['fill-opacity'] = 0.5;
@@ -888,6 +1015,20 @@ function highlightAttrs(pos, kind) {
     attrs['stroke-dasharray'] = '4 3';
   }
   return attrs;
+}
+
+/**
+ * Whether `rest` runs straight on from `from`, one tile after another,
+ * along a single row or column.
+ * @param {Pos} from
+ * @param {Pos[]} rest
+ * @returns {boolean}
+ */
+function inOneLine(from, rest) {
+  const dx = Math.sign(rest[0][0] - from[0]);
+  const dy = Math.sign(rest[0][1] - from[1]);
+  if (Math.abs(dx) + Math.abs(dy) !== 1) return false;
+  return rest.every((p, i) => p[0] === from[0] + dx * (i + 1) && p[1] === from[1] + dy * (i + 1));
 }
 
 /**
@@ -910,7 +1051,9 @@ function drawTargets(parent, targets) {
         'data-highlight': 'line', 'data-line': `${x},${y}`,
       }, parent);
     }
-    if (rest.length > 0) {
+    // The rule runs along a line (a sting, a shoved stone), not across a
+    // bridge that falls as a whole (trial rule beaverGnaw).
+    if (rest.length > 0 && inOneLine(target.at, rest.map((r) => r.at))) {
       const last = rest[rest.length - 1].at;
       el('path', {
         d: `M${cx(target.at[0])} ${cx(target.at[1])} L${cx(last[0])} ${cx(last[1])}`,
@@ -1068,7 +1211,8 @@ export function renderBoard(svg, state, view) {
   const scene = pieceScene(state);
   for (let y = 0; y < state.height; y += 1) {
     for (let x = 0; x < state.width; x += 1) {
-      drawTile(svg, state.tiles[y][x], grounds, x, y, aimed.has(`${x},${y}`), now, scene);
+      const tile = state.tiles[y][x];
+      drawTile(svg, tile, grounds, x, y, aimed.has(`${x},${y}`), now, scene, tile.kind === 'earthbank' ? bankJoins(state, x, y) : NO_JOINS);
     }
   }
   drawDenMarks(svg, state, aimed, scene, now);
@@ -1104,6 +1248,7 @@ export function renderBoard(svg, state, view) {
   // Highlights.
   const kind = view.highlightKind !== null ? view.highlightKind : 'move';
   for (const pos of view.highlights) el('rect', highlightAttrs(pos, kind), svg);
+  for (const pos of view.dashes ?? []) el('rect', highlightAttrs(pos, 'dash'), svg);
   const targets = view.targets !== undefined ? view.targets : [];
   drawTargets(svg, targets);
 

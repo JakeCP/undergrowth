@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import { applyMove } from '../js/engine/battle.js';
 import { bandById, reachable, canWalk, pushBand, stepBand, mendsOn } from '../js/engine/band.js';
-import { planBots, replan, runBotPhase, bandInReach } from '../js/engine/bots.js';
+import { planBots, replan, runBotPhase, bandInReach, snakeDistance } from '../js/engine/bots.js';
 import { actionTargets } from '../js/engine/actions.js';
 import { actionsFor, BAND_TYPES } from '../js/engine/units.js';
 import { describeEvents } from '../js/ui/text.js';
@@ -567,4 +567,67 @@ test('rule off, the same boards: the engine\'s own invariant holds, and some bod
     }
   });
   assert.ok(notPaths > 0, 'without the rule some body stops being a path');
+});
+
+// --- Planning with the body clearing behind it ---
+// A bot counts its own body as leaving tiles behind it as it walks: the
+// tail end first, each body tile free from the step the tail has left it
+// (later while the bot is growing). It never steps into its own body.
+
+test('rule on: a planter whose den lies behind its neck in a corner turns out of it and reaches the den', () => {
+  // The l03 corner in small: the head's only open side is west, and the way
+  // to the den runs back up past where its neck stands now.
+  const CORNER = ['...H', '..S.', '.S..', '.S..'];
+  const s = makeState(CORNER, [{ id: 'bot', type: 'planter', cells: [[3, 3], [3, 2], [2, 2]] }], SNAKE);
+  const plans = botTurns(s, 'bot', 4, [[3, 0]]);
+  assert.ok(plans[0].path.length > 0, `it moves on the first turn: ${JSON.stringify(plans)}`);
+  assert.deepEqual(plans.at(-1).strike, [3, 0], JSON.stringify(plans));
+});
+
+test("rule on: l03's planter leaves the permit on the first turn, as it does with the rule off", async () => {
+  const { LEVELS } = await import('../data/levels/index.js');
+  const { createBattle, withRules } = await import('../js/engine/battle.js');
+  const l03 = LEVELS.find((l) => l.id === 'l03');
+  const progress = { version: 1, seeds: 0, bands: { fox: { maxLen: 2 }, ants: { maxLen: 4 } }, cleared: {}, story: { seen: {} } };
+  const s = createBattle(withRules(l03, { snakeBodies: true }), l03.solution.deploy, progress);
+  const planter = s.bands.find((b) => b.type === 'planter');
+  assert.ok(planter.plan.path.length > 0, JSON.stringify(planter.plan));
+});
+
+test('snakeDistance: a body tile opens from the step the tail has left it, and later while the bot grows', () => {
+  const OPEN = ['......', '......'];
+  const cells = [[2, 0], [3, 0], [4, 0]];
+  const whole = makeState(OPEN, [{ id: 'bot', type: 'planter', cells }], SNAKE);
+  const bot = bandById(whole, 'bot');
+  const goal = new Set(['3,0']);
+  const open = () => true;
+  // Its neck is free from step 2: round by (2,1), (3,1), onto (3,0) at step 3.
+  assert.equal(snakeDistance(whole, bot, cells, goal, open, new Set()), 3);
+  // Two short of its full length it grows for two steps first, so its neck
+  // is free only from step 4; (3,0) is an odd number of steps away: 5.
+  const short = makeState(OPEN, [{ id: 'bot', type: 'planter', cells, maxLen: 5 }], SNAKE);
+  assert.equal(snakeDistance(short, bandById(short, 'bot'), cells, goal, open, new Set()), 5);
+  // A one-tile-wide lane: a snake cannot turn round, so the tile behind it is out of reach.
+  const lane = makeState(['......'], [{ id: 'bot', type: 'planter', cells }], SNAKE);
+  assert.equal(snakeDistance(lane, bandById(lane, 'bot'), cells, new Set(['5,0']), open, new Set()), undefined);
+  // A blocked tile is never entered; a goal tile is reached at once from where it stands.
+  assert.equal(snakeDistance(whole, bot, cells, new Set(['2,0']), open, new Set()), 0);
+});
+
+test('rule on: a harvester heading for a den mows the tree on its way, not one back past its own neck', () => {
+  // The final reviewer's board: its route to the den runs east and south.
+  const BOARD = ['.STTTS.', 'TTTTTS.', '.T.S...', '.S....T', '..TT..S', '..T.T.T', '.H.....'];
+  const s = makeState(BOARD, [{ id: 'bot', type: 'harvester', cells: [[0, 2], [0, 3], [0, 4], [1, 4], [1, 5]] }], SNAKE);
+  assert.deepEqual(planBots(s).bot.strike, [1, 2]);
+});
+
+test('rule on: a planter whose only way to the den loops round where its body lies still finds it', () => {
+  // The final reviewer's board: up into the pocket, round, and back down
+  // once its long body has cleared. A search that never re-enters a tile
+  // finds no way at all and the planter stands still for ever.
+  const BOARD = ['.S.....', '......S', 'S...SS.', '...S..S', '.......', '.S..H..', '.S...SS'];
+  const s = makeState(BOARD, [{ id: 'bot', type: 'planter', cells: [[0, 4], [1, 4], [2, 4], [3, 4], [4, 4]], maxLen: 7 }], SNAKE);
+  const plans = botTurns(s, 'bot', 12, [[4, 5]]);
+  assert.ok(plans[0].path.length > 0, JSON.stringify(plans[0]));
+  assert.deepEqual(plans.at(-1).strike, [4, 5], JSON.stringify(plans));
 });

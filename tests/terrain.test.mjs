@@ -25,6 +25,8 @@ test('TERRAIN encodes every row of the table', () => {
     stones: { animalWalk: false, botWalk: false, flyOver: false, diggable: false },
     habitat: { animalWalk: true, botWalk: false, flyOver: true, diggable: false },
     habitatDamaged: { animalWalk: true, botWalk: false, flyOver: true, diggable: false },
+    earthbank: { animalWalk: false, botWalk: false, flyOver: true, diggable: false },
+    ford: { animalWalk: true, botWalk: true, flyOver: true, diggable: false },
   });
 });
 
@@ -43,6 +45,8 @@ test('LEGEND maps every char to its tile and mark', () => {
   assert.deepEqual(LEGEND['P'], { tile: { kind: 'open', variant: 'grass', under: null }, mark: 'permit' });
   assert.deepEqual(LEGEND['K'], { tile: { kind: 'open', variant: 'grass', under: null }, mark: 'stake' });
   assert.deepEqual(LEGEND['*'], { tile: { kind: 'open', variant: 'grass', under: null }, mark: 'pickup' });
+  assert.deepEqual(LEGEND['B'], { tile: { kind: 'earthbank', variant: null, under: null }, mark: null });
+  assert.deepEqual(LEGEND['F'], { tile: { kind: 'ford', variant: null, under: 'water' }, mark: null });
 });
 
 test('LEGEND tiles are distinct objects', () => {

@@ -36,8 +36,15 @@
 import { bandById } from '../engine/band.js';
 import { BAND_TYPES, actionsFor, tierFor } from '../engine/units.js';
 import { describeIntent } from './text.js';
+import { dashOn } from '../engine/dash.js';
 import { bandTurnState, turnStates, TURN_STATE_TEXT } from './turn-state.js';
 import { SPEED_SCALE } from './unit-info.js';
+
+/** The option id for the fox's dash (trial rule foxDash), as a view's `chosen`. */
+export const DASH_ID = 'dash';
+
+/** The hint while Dash is chosen. */
+export const DASH_HINT = 'Dash: tap a tile to run to';
 
 /** What a trapped band has left: nothing until a band frees it. */
 export const TRAPPED_TEXT = 'Trapped: move a band next to it to free it';
@@ -77,6 +84,7 @@ export function speedMarks(typeId) {
  * @returns {string|null}
  */
 function selectionHint(view) {
+  if (view.actionId === DASH_ID) return DASH_HINT;
   const active = view.options.find((o) => o.id === view.actionId);
   if (active !== undefined && view.targets.length > 0) return `${active.label}: tap a target`;
   const canChoose = view.mode === 'menu' && view.options.some((o) => o.enabled);
@@ -134,16 +142,20 @@ export function focusInfo(state, view, peek = null) {
   const selected = view !== null && view.bandId === band.id ? view : null;
   /** @type {FocusStatus} */
   const status = band.trapped ? 'trapped' : bandTurnState(state, band) ?? 'done';
+  // A band with a dash (trial rule foxDash) chooses with keys and buttons
+  // even while it taps straight away.
+  const choosing = selected !== null && (selected.mode === 'menu' || selected.options.some((o) => o.id === DASH_ID));
+  const hasDash = dashOn(state) && (BAND_TYPES[band.type]?.dash ?? 0) > 0;
   /** @type {FocusAction[]} */
   const actions = selected !== null
     ? selected.options.map((o, i) => ({
       id: o.id,
       label: o.label,
-      key: selected.mode === 'menu' && i < 9 ? String(i + 1) : null,
+      key: choosing && i < 9 ? String(i + 1) : null,
       enabled: o.enabled,
       active: o.id === selected.actionId,
     }))
-    : actionsFor(band.type, band.maxLen).map((def) => ({
+    : [...actionsFor(band.type, band.maxLen, state.rules), ...(hasDash ? [{ id: DASH_ID, label: 'Dash' }] : [])].map((def) => ({
       id: def.id, label: def.label, key: null, enabled: false, active: false,
     }));
   return {
@@ -157,7 +169,7 @@ export function focusInfo(state, view, peek = null) {
     status,
     statusText: status === 'trapped' ? TRAPPED_TEXT : TURN_STATE_TEXT[status],
     actions,
-    choosable: selected !== null && selected.mode === 'menu',
+    choosable: choosing,
     hint: selected !== null ? selectionHint(selected) : null,
   };
 }

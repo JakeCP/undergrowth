@@ -69,6 +69,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createBattle, applyMove, advance, parseGrid, countHabitats, countForest } from '../js/engine/battle.js';
 import { reachable } from '../js/engine/band.js';
+import { dashTiles } from '../js/engine/dash.js';
 import { actionTargets } from '../js/engine/actions.js';
 import { actionsFor, BAND_TYPES, STARTER_TYPES } from '../js/engine/units.js';
 import { TERRAIN } from '../js/engine/terrain.js';
@@ -114,7 +115,20 @@ function copyState(s) {
 
 const KIND_CHAR = {
   open: '.', forest: 'T', stubble: '_', paving: '#', water: '~', hole: 'o', dam: '=', stones: 'S', habitat: 'H', habitatDamaged: 'h',
+  earthbank: 'B', ford: 'F',
 };
+
+/**
+ * A tile's character in a state key and on the drawn board: the level
+ * legend's, with '+' for a dam over a hole and 'f' for a ford over a hole.
+ * @param {import('../js/engine/types.js').Tile} tile
+ * @returns {string}
+ */
+function tileChar(tile) {
+  if (tile.under === 'hole' && tile.kind === 'dam') return '+';
+  if (tile.under === 'hole' && tile.kind === 'ford') return 'f';
+  return KIND_CHAR[tile.kind];
+}
 
 /**
  * Everything that decides how a position plays on, as a string. Two
@@ -122,10 +136,10 @@ const KIND_CHAR = {
  * @param {BattleState} s
  * @returns {string}
  */
-function stateKey(s) {
+export function stateKey(s) {
   let k = '';
   for (const row of s.tiles) {
-    for (const tile of row) k += tile.kind === 'dam' && tile.under === 'hole' ? '+' : KIND_CHAR[tile.kind];
+    for (const tile of row) k += tileChar(tile);
   }
   for (const b of s.bands) {
     k += `|${b.id}${b.trapped ? '!' : ''}${b.fresh ? '+' : ''}`;
@@ -159,7 +173,7 @@ export function rosterFor(levelId) {
  */
 export function progressFor(level, assume, extra = []) {
   const p = newProgress();
-  for (const type of [...rosterFor(level.id), ...extra]) {
+  for (const type of [...(level.roster ?? rosterFor(level.id)), ...extra]) {
     if (p.bands[type] === undefined) p.bands[type] = { maxLen: BAND_TYPES[type].startLen };
   }
   for (const [type, n] of Object.entries(assume ?? level.assumes)) p.bands[type] = { maxLen: n };
@@ -205,6 +219,8 @@ function animalDistance(s, goals) {
         const tile = s.tiles[ny][nx];
         let cost = 1;
         if (tile.kind === 'water' || tile.kind === 'hole') cost = 4;
+        // An earth bank a badger could dig away (trial rule badgerEarthworks).
+        else if (tile.kind === 'earthbank' && s.rules?.badgerEarthworks === true) cost = 4;
         else if (!TERRAIN[tile.kind].animalWalk) continue;
         if (here + cost < dist[ny][nx]) {
           dist[ny][nx] = here + cost;
@@ -327,7 +343,7 @@ function bandOptions(state, bandId) {
   const acts = (s, prefix) => {
     const b = s.bands.find((x) => x.id === bandId);
     if (b === undefined) return;
-    for (const action of actionsFor(b.type, b.maxLen)) {
+    for (const action of actionsFor(b.type, b.maxLen, s.rules)) {
       for (const target of actionTargets(s, bandId, action.id)) {
         options.push([...prefix, { kind: 'act', band: bandId, action: action.id, target: [target[0], target[1]] }]);
       }
@@ -343,16 +359,21 @@ function bandOptions(state, bandId) {
     advance(after, move);
     if (after.outcome === null) acts(after, [move]);
   }
+  // The fox's dash (trial rule foxDash): a longer walk with no act after.
+  for (const path of dashTiles(state, bandId).values()) {
+    options.push([{ kind: 'move', band: bandId, path: path.map((p) => /** @type {Pos} */ ([p[0], p[1]])), dash: true }]);
+  }
   return options;
 }
 
 /**
- * @param {string[]} ids
- * @returns {string[][]}
+ * @template T
+ * @param {T[]} ids
+ * @returns {T[][]}
  */
-function orders(ids) {
+export function orders(ids) {
   if (ids.length <= 1) return [ids];
-  /** @type {string[][]} */
+  /** @type {T[][]} */
   const out = [];
   ids.forEach((id, i) => {
     const rest = [...ids.slice(0, i), ...ids.slice(i + 1)];
@@ -624,10 +645,11 @@ export function race(level, deploy, options = {}) {
  * every choice of deploy tiles.
  * @param {Level} level
  * @param {string[]} [extra]  shop bands to try as well
+ * @param {string[]} [roster]  defaults to the guaranteed campaign roster
  * @returns {Deployment[][]}
  */
-export function rosterDeployments(level, extra = []) {
-  const types = [...new Set([...rosterFor(level.id), ...extra])];
+export function rosterDeployments(level, extra = [], roster = level.roster ?? rosterFor(level.id)) {
+  const types = [...new Set([...roster, ...extra])];
   const { deployTiles } = parseGrid(level.grid);
   /** @type {Deployment[][]} */
   const out = [];
@@ -706,7 +728,7 @@ export function formatSolution(deploy, moves) {
   lines.push('    ],', '    moves: [');
   for (const m of moves) {
     if (m.kind === 'move') {
-      lines.push(`      { kind: 'move', band: '${m.band}', path: [${m.path.map(pos).join(', ')}] },`);
+      lines.push(`      { kind: 'move', band: '${m.band}', path: [${m.path.map(pos).join(', ')}]${m.dash === true ? ', dash: true' : ''} },`);
     } else if (m.kind === 'act') {
       lines.push(`      { kind: 'act', band: '${m.band}', action: '${m.action}', target: ${pos(m.target)} },`);
     } else {
@@ -731,7 +753,7 @@ const BAND_CHARS = { fox: 'Ff', hedgehog: 'Nn', ants: 'Aa', badger: 'Gg', beaver
  * @returns {string}
  */
 export function drawBoard(s) {
-  const rows = s.tiles.map((row) => row.map((tile) => KIND_CHAR[tile.kind]));
+  const rows = s.tiles.map((row) => row.map((tile) => (tile.kind === 'dam' ? '=' : tileChar(tile))));
   for (const o of s.objectives) if (!o.captured) rows[o.at[1]][o.at[0]] = o.kind === 'permit' ? 'P' : 'K';
   for (const p of s.pickups) rows[p[1]][p[0]] = '*';
   /** @type {string[]} */

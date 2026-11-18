@@ -96,7 +96,8 @@ export const PALETTE = Object.freeze({
 /**
  * A ground is what a tile stands on. Most terrain kinds are their own
  * ground; 'meadow' and 'bank' are open ground with flowers and open ground
- * beside water, and a dam shows the water or hole under it. Several
+ * beside water, and a dam or a ford shows the water or hole under it. (An
+ * earth bank, terrain kind 'earthbank', stands on grass like the stones.) Several
  * grounds are filled alike (see SURFACE).
  * @typedef {'open'|'meadow'|'bank'|'forest'|'stubble'|'paving'|'water'|'hole'|'stones'|'habitat'|'habitatDamaged'} GroundKey
  */
@@ -276,7 +277,10 @@ export function groundKey(tile, nearWater = false) {
       if (nearWater) return 'bank';
       return tile.variant === 'flowers' ? 'meadow' : 'open';
     case 'dam':
+    case 'ford':
       return tile.under === 'hole' ? 'hole' : 'water';
+    case 'earthbank':
+      return 'open';
     case 'forest':
     case 'stubble':
     case 'paving':

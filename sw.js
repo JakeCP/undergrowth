@@ -17,7 +17,7 @@
 // The browser byte-diffs sw.js, installs the new worker, precaches
 // into the new cache name and — on activate — deletes every older
 // cache (skipWaiting + clients.claim: no waiting-worker prompt).
-const APP_VERSION = '73';
+const APP_VERSION = '77';
 const CACHE_NAME = `undergrowth-v${APP_VERSION}`;
 
 // Relative to the worker's scope ("./" = repo root on Pages).
@@ -55,12 +55,14 @@ const PRECACHE_URLS = [
   'js/engine/actions.js',
   'js/engine/band.js',
   'js/engine/battle.js',
+  'js/engine/dash.js',
   'js/engine/bots.js',
   'js/engine/grid.js',
   'js/engine/lanes.js',
   'js/engine/terrain.js',
   'js/engine/types.js',
   'js/engine/units.js',
+  'js/engine/works.js',
   'js/story/moments.js',
   'js/story/run.js',
   'js/story/story.js',

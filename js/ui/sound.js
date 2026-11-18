@@ -69,6 +69,8 @@ const ACTION_SOUNDS = new Map([
   ['ram', 'bite'],
   ['shove', 'bite'],
   ['dig', 'dig'],
+  ['fill', 'dig'],
+  ['gnaw', 'dig'],
   ['mow', 'mow'],
   ['saw', 'mow'],
   ['shoot', 'bite'],
@@ -92,6 +94,7 @@ export function soundForEvent(event, tileKind) {
     return ACTION_SOUNDS.get(event.actionId) ?? null;
   }
   if (event.kind === 'terrain') {
+    if (event.from === 'water' && event.to === 'ford') return 'splash';
     return event.from === 'dam' && event.to === 'water' ? 'splash' : null;
   }
   if (event.kind === 'push') {

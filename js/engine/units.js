@@ -1,6 +1,7 @@
 /** @typedef {import('./types.js').ActionDef} ActionDef */
 /** @typedef {import('./types.js').BandType} BandType */
 /** @typedef {import('./types.js').Tier} Tier */
+/** @typedef {import('./types.js').Rules} Rules */
 
 /** @type {ActionDef} */
 const ram = {
@@ -42,6 +43,9 @@ export const BAND_TYPES = {
     tiers: [{ minLen: 1, name: 'Fox', grants: [] }],
     price: null,
     recruitBase: 15,
+    // Under the trial rule foxDash, the steps a dash adds to its walk, in
+    // place of its bite (js/engine/dash.js).
+    dash: 2,
   },
   hedgehog: {
     id: 'hedgehog',
@@ -94,6 +98,8 @@ export const BAND_TYPES = {
       // From its tail end as well as its head: it can shut the door it has just come through.
       { id: 'dig', label: 'Dig', effect: 'dig', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, fromTail: true },
       { id: 'bite', label: 'Bite', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
+      // Under the trial rule badgerEarthworks only (js/engine/works.js).
+      { id: 'fill', label: 'Fill', effect: 'fill', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, rule: 'badgerEarthworks' },
     ],
     tiers: [{ minLen: 1, name: 'Badger', grants: [] }],
     price: 30,
@@ -110,6 +116,8 @@ export const BAND_TYPES = {
     maxLenCap: 6,
     actions: [
       { id: 'build', label: 'Build', effect: 'build', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
+      // Under the trial rule beaverGnaw only: the whole bridge falls (js/engine/works.js).
+      { id: 'gnaw', label: 'Gnaw', effect: 'gnaw', damage: 0, minRange: 1, maxRange: 1, pattern: 'single', push: 0, rule: 'beaverGnaw' },
     ],
     tiers: [{ minLen: 1, name: 'Beaver', grants: [] }],
     price: 30,
@@ -126,7 +134,8 @@ export const BAND_TYPES = {
     maxLenCap: 4,
     actions: [
       { id: 'maul', label: 'Maul', effect: 'attack', damage: 3, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
-      { id: 'shove', label: 'Shove', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 1 },
+      // Under the trial rule bearShovesStones it shoves stones too (js/engine/works.js).
+      { id: 'shove', label: 'Shove', effect: 'attack', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 1, movesStones: true },
     ],
     tiers: [{ minLen: 1, name: 'Bear', grants: [] }],
     price: 60,
@@ -340,14 +349,18 @@ export function tierFor(typeId, maxLen) {
 }
 
 /**
+ * The actions a band of this type has at this length, in order. An action
+ * that names a trial `rule` is there only when `rules` has it on, so with
+ * no rules every band has exactly the actions it always had.
  * @param {string} typeId
  * @param {number} maxLen
+ * @param {Rules} [rules]
  * @returns {ActionDef[]}
  */
-export function actionsFor(typeId, maxLen) {
+export function actionsFor(typeId, maxLen, rules = {}) {
   const type = BAND_TYPES[typeId];
   /** @type {ActionDef[]} */
-  const result = [...type.actions];
+  const result = type.actions.filter((a) => a.rule === undefined || rules[a.rule] === true);
   for (const tier of type.tiers) {
     if (tier.minLen <= maxLen) result.push(...tier.grants);
   }

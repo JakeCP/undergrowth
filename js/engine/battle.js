@@ -16,6 +16,7 @@ import { BAND_TYPES } from './units.js';
 import { bandById, canPass, landsClear, stepBand, growthAlong, bandAfterStep } from './band.js';
 import { findAction, actionTargets, resolveAction } from './actions.js';
 import { runBotPhase, replan } from './bots.js';
+import { canDash, dashRange } from './dash.js';
 
 /**
  * @param {string[]} grid
@@ -102,7 +103,7 @@ export function countHabitats(state) {
 }
 
 /** The ids of the trial rules a level may switch on: the keys of `Rules`. */
-export const TRIAL_RULE_IDS = Object.freeze(['woodOnlyGrowth', 'snakeBodies']);
+export const TRIAL_RULE_IDS = Object.freeze(['woodOnlyGrowth', 'snakeBodies', 'foxDash', 'beaverGnaw', 'bearShovesStones', 'badgerEarthworks']);
 
 /**
  * A copy of the level with each rule in `rules` that is `true` switched on
@@ -247,9 +248,11 @@ function requirePlayerBand(state, bandId) {
  * @param {BattleState} state
  * @param {string} bandId
  * @param {Pos[]} path
+ * @param {boolean} [dash]  A dash (js/engine/dash.js): up to the type's
+ *   dash range, and it ends the band's turn.
  * @returns {void}
  */
-function applyBandMove(state, bandId, path) {
+function applyBandMove(state, bandId, path, dash = false) {
   const band = requirePlayerBand(state, bandId);
   if (band.moved) throw new Error(`band "${bandId}" has already moved`);
   if (band.acted) throw new Error(`band "${bandId}" has already acted`);
@@ -258,8 +261,10 @@ function applyBandMove(state, bandId, path) {
   const type = BAND_TYPES[band.type];
   if (type === undefined) throw new Error(`unknown band type "${band.type}"`);
   if (path.length === 0) throw new Error('move path must have at least one step');
-  if (path.length > type.speed) {
-    throw new Error(`move path of ${path.length} steps exceeds speed ${type.speed}`);
+  if (dash && !canDash(state, band)) throw new Error(`band "${bandId}" cannot dash`);
+  const limit = dash ? dashRange(band.type) : type.speed;
+  if (path.length > limit) {
+    throw new Error(`move path of ${path.length} steps exceeds ${dash ? 'dash range' : 'speed'} ${limit}`);
   }
 
   // The same rule as canWalk, checked step by step for a clear message.
@@ -286,9 +291,12 @@ function applyBandMove(state, bandId, path) {
 
   // Where it may grow, on the event only when some step holds it back.
   const grow = growthAlong(state, band, path);
-  state.events.push(grow.every(Boolean)
+  /** @type {import('./types.js').BattleEvent} */
+  const moved = grow.every(Boolean)
     ? { kind: 'move', band: bandId, path: path.map(copyPos) }
-    : { kind: 'move', band: bandId, path: path.map(copyPos), grow });
+    : { kind: 'move', band: bandId, path: path.map(copyPos), grow };
+  if (dash) moved.dash = true;
+  state.events.push(moved);
 
   for (let i = 0; i < path.length; i += 1) {
     const step = path[i];
@@ -309,6 +317,8 @@ function applyBandMove(state, bandId, path) {
   }
 
   band.moved = true;
+  // A dash takes the band's action too: its turn is over.
+  if (dash) band.acted = true;
   // Whole once: the first march is over, and from now on it mends only in the wood.
   if (band.cells.length >= band.maxLen) band.fresh = false;
 
@@ -334,7 +344,7 @@ function applyBandAction(state, bandId, actionId, target) {
   const band = requirePlayerBand(state, bandId);
   if (band.acted) throw new Error(`band "${bandId}" has already acted`);
 
-  const action = findAction(band, actionId);
+  const action = findAction(band, actionId, state.rules);
   if (action === undefined) {
     throw new Error(`band "${bandId}" cannot use action "${actionId}"`);
   }
@@ -442,7 +452,7 @@ export function advance(state, move) {
   if (state.outcome !== null) throw new Error('battle is over');
 
   if (move.kind === 'move') {
-    applyBandMove(state, move.band, move.path);
+    applyBandMove(state, move.band, move.path, move.dash === true);
   } else if (move.kind === 'act') {
     applyBandAction(state, move.band, move.action, move.target);
   } else if (move.kind === 'end') {

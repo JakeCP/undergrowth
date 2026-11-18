@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// The bench: five boring players, a check on a level, not a solver. A dev
-// tool, not shipped and not run in CI (its tests are).
+// Check a round for a playable winning line, a consequential tactical choice,
+// and shortcuts a simple player can execute. See README.md for the verdict.
 //
-//   node scripts/bench.mjs                        the campaign, then the test levels
-//   node scripts/bench.mjs l03 t01                just these
+//   node scripts/bench.mjs                        the campaign, the test levels, then Alt 1-5
+//   node scripts/bench.mjs l03 t01 a02            just these
 //   node scripts/bench.mjs --lab                  just the test levels
+//   node scripts/bench.mjs --alt                  just the alt levels, a01-a05
 //   node scripts/bench.mjs --rule woodOnlyGrowth  every level with a trial rule on
 //
 // Every player is deterministic and never reads a bot's plan. Each turn,
@@ -24,14 +25,11 @@
 //   camp   the forest tile nearest the bots, then sits in the wood,
 //          moving only to mend, from tree to tree (needs a forest)
 //   pack   every band at the one bot nearest the first band
+//   idle   end every turn immediately
 //
-// Each plays the level's recorded deployments, and every pick from its
-// `roster` if it has one, and the table shows each player's best result.
-// With no `lab/` (the public build) it benches the campaign alone.
-//
-// The design rule from the 2026-11-16 gameplay review: a level a boring
-// player wins with every den whole is not finished, because the lesson
-// can be skipped.
+// Try the first and last equally good walk in engine order for each active
+// policy. With no lab/ (the public build) the bench plays the campaign alone;
+// the test levels come from lab/levels/, the alt levels from lab/alt/.
 
 /** @typedef {import('../js/engine/types.js').Pos} Pos */
 /** @typedef {import('../js/engine/types.js').Level} Level */
@@ -39,21 +37,24 @@
 /** @typedef {import('../js/engine/types.js').BattleState} BattleState */
 /** @typedef {import('../js/engine/types.js').Deployment} Deployment */
 /** @typedef {{outcome: 'won'|'lost'|'unfinished', reason: string|null, turn: number, clean: boolean}} Run */
+/** @typedef {Run & {deploy: Deployment[], reverseTies: boolean}} RecordedRun */
 
 import { existsSync } from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LEVELS } from '../data/levels/index.js';
-import { createBattle, applyMove, parseGrid, withRules, TRIAL_RULE_IDS } from '../js/engine/battle.js';
+import { createBattle, advance, parseGrid, withRules, TRIAL_RULE_IDS } from '../js/engine/battle.js';
 import { reachable } from '../js/engine/band.js';
+import { canDash, dashTiles } from '../js/engine/dash.js';
 import { actionTargets } from '../js/engine/actions.js';
-import { actionsFor } from '../js/engine/units.js';
+import { actionsFor, BAND_TYPES } from '../js/engine/units.js';
 import { canEnter, isHabitat } from '../js/engine/terrain.js';
 import { eq, key, neighbours } from '../js/engine/grid.js';
-import { progressFor } from './solve.mjs';
+import { orders, progressFor, replay, rosterDeployments, rosterFor, stateKey } from './solve.mjs';
+import { consequentialTurns } from './bench-challenge.mjs';
 
-export const PLAYERS = Object.freeze(['goal', 'chase', 'guard', 'camp', 'pack']);
+export const PLAYERS = Object.freeze(['goal', 'chase', 'guard', 'camp', 'pack', 'idle']);
 
-const MAX_TURNS = 20;
+const MAX_TURNS = 100;
 const WATER_COST = 4;
 
 /**
@@ -224,19 +225,22 @@ function claimDens(s, order) {
 }
 
 /**
- * The path the band walks this turn, or null to stay.
+ * The path the band walks this turn, and whether it dashes there (trial
+ * rule foxDash), or null to stay.
  * @param {BattleState} s
  * @param {string} player
  * @param {Band} band
  * @param {Pos[]} goals
  * @param {Map<string, Pos>} claims
- * @returns {Pos[]|null}
+ * @param {boolean} reverseTies
+ * @returns {{path: Pos[], dash: boolean}|null}
  */
-function walkFor(s, player, band, goals, claims) {
+function walkFor(s, player, band, goals, claims, reverseTies) {
   const head = band.cells[0];
   const dist = distances(s, goals);
   const far = (/** @type {Pos} */ p) => dist.get(key(p)) ?? Infinity;
   const paths = [...reachable(s, band.id).values()];
+  if (reverseTies) paths.reverse();
   const den = claims.get(band.id);
   if (player === 'guard' && den !== undefined && eq(head, den)) return null;
   if (player === 'camp' && s.tiles[head[1]][head[0]].kind === 'forest') {
@@ -245,14 +249,43 @@ function walkFor(s, player, band, goals, claims) {
     /** @type {Pos[]|null} */
     let step = null;
     for (const p of steps) if (step === null || far(p[0]) < far(step[0])) step = p;
-    return step;
+    return step === null ? null : { path: step, dash: false };
   }
   /** @type {Pos[]|null} */
   let best = null;
   for (const path of paths) {
     if (best === null || far(path[path.length - 1]) < far(best[best.length - 1])) best = path;
   }
-  return best !== null && far(best[best.length - 1]) < far(head) ? best : null;
+  const walk = best !== null && far(best[best.length - 1]) < far(head) ? best : null;
+  const run = dashFor(s, band, paths, far, walk === null ? head : walk[walk.length - 1]);
+  if (run !== null) return { path: run, dash: true };
+  return walk === null ? null : { path: walk, dash: false };
+}
+
+/**
+ * Whether the band dashes instead (trial rule foxDash): only when it can,
+ * when no tile it could walk to (or stay on) is next to a bot, so it has
+ * nothing to bite, and when a dash tile is strictly nearer its goals than
+ * `end`, where its walk would leave it. The nearest such tile's path, or
+ * null.
+ * @param {BattleState} s
+ * @param {Band} band
+ * @param {Pos[][]} paths  Its walks.
+ * @param {(p: Pos) => number} far
+ * @param {Pos} end
+ * @returns {Pos[]|null}
+ */
+function dashFor(s, band, paths, far, end) {
+  if (!canDash(s, band)) return null;
+  const bots = botsOf(s).flatMap((b) => b.cells);
+  const stands = [band.cells[0], ...paths.map((p) => p[p.length - 1])];
+  if (stands.some((t) => bots.some((c) => Math.abs(c[0] - t[0]) + Math.abs(c[1] - t[1]) === 1))) return null;
+  /** @type {Pos[]|null} */
+  let best = null;
+  for (const path of dashTiles(s, band.id).values()) {
+    if (best === null || far(path[path.length - 1]) < far(best[best.length - 1])) best = path;
+  }
+  return best !== null && far(best[best.length - 1]) < far(end) ? best : null;
 }
 
 /**
@@ -263,7 +296,7 @@ function walkFor(s, player, band, goals, claims) {
  * @returns {{action: string, target: Pos}|null}
  */
 function actFor(s, band, goals) {
-  const actions = actionsFor(band.type, band.maxLen);
+  const actions = actionsFor(band.type, band.maxLen, s.rules);
   const bots = botsOf(s).flatMap((b) => b.cells);
   for (const attack of actions.filter((a) => a.effect === 'attack')) {
     const target = actionTargets(s, band.id, attack.id).find((t) => bots.some((c) => eq(c, t)));
@@ -284,62 +317,83 @@ function actFor(s, band, goals) {
  * @param {Level} level
  * @param {string} player
  * @param {Deployment[]} deploy
+ * @param {boolean} [reverseTies]
  * @returns {Run|null}
  */
-export function playBoring(level, player, deploy) {
+export function playBoring(level, player, deploy, reverseTies = false) {
   const { tiles } = parseGrid(level.grid);
   if (player === 'guard' && !tiles.flat().some(isHabitat)) return null;
   if (player === 'camp' && !tiles.flat().some((t) => t.kind === 'forest')) return null;
   const order = deploy.map((d) => d.type);
-  let s = createBattle(level, deploy, progressFor(level, undefined, order));
+  const s = createBattle(level, deploy, progressFor(level, undefined, order));
   const claims = player === 'guard' ? claimDens(s, order) : new Map();
+  const seen = new Set();
+  let reason = 'turn cap';
+  let turn = s.turn;
   while (s.outcome === null && s.turn <= MAX_TURNS) {
+    // These policies depend only on the position. A repeated turn start
+    // repeats forever, or until the level clock expires.
+    turn = s.turn;
+    const position = stateKey(s);
+    if (seen.has(position)) {
+      reason = 'cycle';
+      break;
+    }
+    seen.add(position);
+    s.events = [];
     for (const id of order) {
-      if (s.outcome !== null) break;
+      if (player === 'idle' || s.outcome !== null) break;
       const band = s.bands.find((b) => b.id === id);
       if (band === undefined || band.cells.length === 0) continue;
-      const path = walkFor(s, player, band, goalsFor(s, player, band, claims, order), claims);
-      if (path !== null) s = applyMove(s, { kind: 'move', band: id, path });
+      const walk = walkFor(s, player, band, goalsFor(s, player, band, claims, order), claims, reverseTies);
+      if (walk !== null) advance(s, walk.dash ? { kind: 'move', band: id, path: walk.path, dash: true } : { kind: 'move', band: id, path: walk.path });
       if (s.outcome !== null) break;
+      // A dash has taken the band's action too.
+      if (walk !== null && walk.dash) continue;
       const now = s.bands.find((b) => b.id === id);
       if (now === undefined || now.cells.length === 0) continue;
       const act = actFor(s, now, goalsFor(s, player, now, claims, order));
-      if (act !== null) s = applyMove(s, { kind: 'act', band: id, ...act });
+      if (act !== null) advance(s, { kind: 'act', band: id, ...act });
     }
-    if (s.outcome === null) s = applyMove(s, { kind: 'end' });
+    if (s.outcome === null) advance(s, { kind: 'end' });
   }
   const untouched = s.tiles.flat().filter((t) => t.kind === 'habitat').length;
-  return { outcome: s.outcome ?? 'unfinished', reason: s.lostReason, turn: s.turn, clean: untouched === s.habitatStart };
+  return { outcome: s.outcome ?? 'unfinished', reason: s.outcome === null ? reason : s.lostReason, turn, clean: untouched === s.habitatStart };
+}
+
+/** Recordings may include bought bands in the campaign. A lab roster is fixed.
+ * @param {Level} level
+ * @param {Deployment[]} deploy
+ * @param {string[]} roster
+ * @param {boolean} allowShop
+ */
+function allowedDeployment(level, deploy, roster, allowShop) {
+  for (const { type } of deploy) {
+    const def = BAND_TYPES[type];
+    if (def?.side !== 'us') return false;
+    if (!roster.includes(type) && !(allowShop && !level.roster && def.price !== null)) return false;
+  }
+  const { deployTiles } = parseGrid(level.grid);
+  return deploy.length > 0 && deploy.length <= level.maxBands &&
+    new Set(deploy.map((d) => d.type)).size === deploy.length &&
+    new Set(deploy.map((d) => key(d.at))).size === deploy.length &&
+    deploy.every((d) => deployTiles.some((pos) => eq(pos, d.at)));
 }
 
 /**
- * The deployments the bench plays: the recorded ones, then every pick of
- * one to `min(maxBands, camp tiles)` animals from the level's roster, on
- * the camp tiles in order.
+ * Every guaranteed roster pick, camp tile assignment and band order, plus
+ * recorded deployments (which can also demonstrate a shop approach).
  * @param {Level} level
  * @returns {Deployment[][]}
  */
 export function deploymentsFor(level) {
-  /** @type {Deployment[][]} */
-  const out = [level.solution, ...(level.alternatives ?? [])].map((sol) => sol.deploy).filter((d) => d.length > 0);
-  const roster = level.roster ?? [];
-  const { deployTiles } = parseGrid(level.grid);
-  const most = Math.min(level.maxBands, deployTiles.length, roster.length);
-  /**
-   * @param {number} from
-   * @param {string[]} chosen
-   * @param {number} size
-   */
-  const choose = (from, chosen, size) => {
-    if (chosen.length === size) {
-      out.push(chosen.map((type, i) => ({ type, at: /** @type {Pos} */ ([deployTiles[i][0], deployTiles[i][1]]) })));
-      return;
-    }
-    for (let i = from; i < roster.length; i += 1) choose(i + 1, [...chosen, roster[i]], size);
-  };
-  for (let size = 1; size <= most; size += 1) choose(0, [], size);
+  const roster = level.roster ?? rosterFor(level.id);
+  const out = rosterDeployments(level, [], roster);
+  for (const sol of [level.solution, ...(level.alternatives ?? [])]) {
+    if (allowedDeployment(level, sol.deploy, roster, true)) out.push(sol.deploy);
+  }
   const seen = new Set();
-  return out.filter((d) => {
+  return out.flatMap(orders).filter((d) => {
     const k = JSON.stringify(d);
     if (seen.has(k)) return false;
     seen.add(k);
@@ -353,25 +407,31 @@ export function deploymentsFor(level) {
  */
 function rank(run) {
   if (run.outcome === 'won') return run.clean ? 0 : 1;
-  return run.outcome === 'unfinished' ? 2 : 3;
+  if (run.outcome === 'unfinished') return run.reason === 'turn cap' ? 2 : 3;
+  return 4;
 }
 
 /**
- * Each player's best run over the level's deployments (the first among
- * equals): won clean, then won, unfinished, lost.
+ * Keep a reproducer for each policy. A win takes priority, then a cutoff
+ * requiring more work, a repeated position, and a defeat.
  * @param {Level} level
- * @returns {Record<string, Run|null>}
+ * @param {Deployment[][]} [deploys]
+ * @returns {Record<string, RecordedRun|null>}
  */
-export function benchLevel(level) {
-  const deploys = deploymentsFor(level);
-  /** @type {Record<string, Run|null>} */
+export function benchLevel(level, deploys = deploymentsFor(level)) {
+  /** @type {Record<string, RecordedRun|null>} */
   const out = {};
   for (const player of PLAYERS) {
-    /** @type {Run|null} */
+    /** @type {RecordedRun|null} */
     let best = null;
     for (const deploy of deploys) {
-      const run = playBoring(level, player, deploy);
-      if (run !== null && (best === null || rank(run) < rank(best))) best = run;
+      for (const reverseTies of player === 'idle' ? [false] : [false, true]) {
+        const run = playBoring(level, player, deploy, reverseTies);
+        if (run !== null && (best === null || rank(run) < rank(best) ||
+          (rank(run) === rank(best) && run.outcome === 'won' && run.turn < best.turn))) {
+          best = { ...run, deploy, reverseTies };
+        }
+      }
     }
     out[player] = best;
   }
@@ -401,31 +461,136 @@ export function anyWins(level) {
 }
 
 /**
- * @param {Run|null} run
- * @returns {string}
+ * Replay a win available to the intended roster under this exact ruleset.
+ * Prefer a line with a demonstrated tactical choice. An illegal move or
+ * an unfinished recording cannot certify a round.
+ * @param {Level} level
  */
-function cell(run) {
-  if (run === null) return '-';
-  if (run.outcome === 'won') return run.clean ? 'won clean' : 'won, den hurt';
-  return run.outcome === 'lost' ? `lost (${run.reason})` : 'unfinished';
+function witnessFor(level) {
+  const roster = level.roster ?? rosterFor(level.id);
+  let failure = 'no recorded win';
+  let witness = null;
+  const lines = [level.solution, ...(level.alternatives ?? [])];
+  for (const [i, line] of lines.entries()) {
+    if (!allowedDeployment(level, line.deploy, roster, false)) {
+      if (i === 0) failure = 'invalid deployment for the starting roster';
+      continue;
+    }
+    const invalidSize = line.deploy.find(({type}) => {
+      const size = level.assumes[type] ?? BAND_TYPES[type].startLen;
+      return !Number.isInteger(size) || size < BAND_TYPES[type].startLen || size > BAND_TYPES[type].maxLenCap;
+    });
+    if (invalidSize) {
+      if (i === 0) failure = `invalid size for ${invalidSize.type}`;
+      continue;
+    }
+    /** @type {BattleState[]} */
+    const states = [];
+    const { state, error } = replay(level, line.deploy, line.moves, undefined, (s) => states.push(s));
+    if (error || state.outcome !== 'won') {
+      if (i === 0) failure = error ?? state.lostReason ?? 'unfinished replay';
+      continue;
+    }
+    const choices = consequentialTurns(states, line.moves);
+    const result = { line: i + 1, turn: states[line.moves.length - 1].turn, choices };
+    witness ??= result;
+    if (choices.length) return { witness: result, failure: null };
+  }
+  return { witness, failure: witness ? null : failure };
+}
+
+/** @param {Level} level */
+export function assessLevel(level) {
+  const { witness, failure } = witnessFor(level);
+  const deploys = deploymentsFor(level);
+  const runs = benchLevel(level, deploys);
+  return { ...verdictOf(witness, runs), witness, failure, runs, starts: deploys.length };
 }
 
 /**
- * The test levels: the `LAB_LEVELS` of the module at `url`, or none when
- * that file is not there (the public build has no `lab/`). A file that is
- * there but broken, or has no `LAB_LEVELS` array, is an error, not an
- * empty list, so a broken test level never quietly drops out of the table.
+ * The verdict on a round, by the rule from the 2026-11-16 review: a round
+ * a simple player wins with every den whole is not finished (a shortcut,
+ * and the round fails). A simple win with a den damaged is a warning to
+ * look at; the round still passes. It also needs a verified win, and no
+ * run left unresolved at the turn cap. The count of consequential turns
+ * on the winning line is shown to the designer but never decides: it sees
+ * only what a changed order costs within that same turn.
+ * @param {{choices: unknown[]}|null} witness
+ * @param {Record<string, Run|null>} runs
+ * @returns {{pass: boolean, shortcuts: string[], warnings: string[], capped: string[]}}
+ */
+export function verdictOf(witness, runs) {
+  const players = Object.keys(runs);
+  const won = players.filter((p) => runs[p]?.outcome === 'won');
+  const shortcuts = won.filter((p) => runs[p]?.clean === true);
+  const warnings = won.filter((p) => runs[p]?.clean !== true);
+  const capped = players.filter((p) => runs[p]?.reason === 'turn cap');
+  const pass = witness !== null && shortcuts.length === 0 && capped.length === 0;
+  return { pass, shortcuts, warnings, capped };
+}
+
+/** @param {import('../js/engine/types.js').Move|null} order */
+function describeOrder(order) {
+  if (!order) return 'skip';
+  if (order.kind === 'move') return `${order.band} via ${order.path.map((p) => p.join(',')).join(' / ')}`;
+  if (order.kind === 'act') return `${order.band} ${order.action} at ${order.target}`;
+  return 'end turn';
+}
+
+/**
+ * The levels a module under lab/ exports as `name`, or none when that file
+ * is not there (the public build has no `lab/`). A file that is there but
+ * broken, or has no such array, is an error, not an empty list, so a
+ * broken level never quietly drops out of the table.
+ * @param {URL} url
+ * @param {string} name
+ * @returns {Promise<Level[]>}
+ */
+async function loadLevels(url, name) {
+  if (!existsSync(fileURLToPath(url))) return [];
+  const mod = await import(url.href);
+  if (!Array.isArray(mod[name])) throw new Error(`${fileURLToPath(url)} has no ${name} array`);
+  return mod[name];
+}
+
+/**
+ * The test levels: the `LAB_LEVELS` of the module at `url` (see loadLevels).
  * @param {URL} [url]
  * @returns {Promise<Level[]>}
  */
-export async function loadLabLevels(url = new URL('../lab/levels/index.js', import.meta.url)) {
-  if (!existsSync(fileURLToPath(url))) return [];
-  const mod = await import(url.href);
-  if (!Array.isArray(mod.LAB_LEVELS)) throw new Error(`${fileURLToPath(url)} has no LAB_LEVELS array`);
-  return mod.LAB_LEVELS;
+export function loadLabLevels(url = new URL('../lab/levels/index.js', import.meta.url)) {
+  return loadLevels(url, 'LAB_LEVELS');
 }
 
-const USAGE = `usage: node scripts/bench.mjs [level ids] [--lab] [--rule <${TRIAL_RULE_IDS.join('|')}>]`;
+/**
+ * The alt levels, a01-a05: the `ALT_LEVELS` of the module at `url` (see
+ * loadLevels).
+ * @param {URL} [url]
+ * @returns {Promise<Level[]>}
+ */
+export function loadAltLevels(url = new URL('../lab/alt/index.js', import.meta.url)) {
+  return loadLevels(url, 'ALT_LEVELS');
+}
+
+/**
+ * The rounds a run can pick from, in the order they are played: the
+ * campaign, the test levels, then the alt levels; with --lab or --alt only
+ * those (both flags: both sets). A sandbox has no line to judge, so the
+ * bench never plays it.
+ * @param {{campaign: Level[], lab: Level[], alt: Level[]}} sets
+ * @param {{labOnly?: boolean, altOnly?: boolean}} [flags]
+ * @returns {Level[]}
+ */
+export function benchPool(sets, flags = {}) {
+  const lab = sets.lab.filter((l) => l.sandbox !== true);
+  const alt = sets.alt.filter((l) => l.sandbox !== true);
+  if (flags.labOnly === true || flags.altOnly === true) {
+    return [...(flags.labOnly === true ? lab : []), ...(flags.altOnly === true ? alt : [])];
+  }
+  return [...sets.campaign, ...lab, ...alt];
+}
+
+const USAGE = `usage: node scripts/bench.mjs [level ids] [--lab] [--alt] [--rule <${TRIAL_RULE_IDS.join('|')}>]`;
 
 /**
  * @param {string[]} argv
@@ -436,12 +601,15 @@ export async function main(argv, out) {
   /** @type {string[]} */
   const ids = [];
   let labOnly = false;
+  let altOnly = false;
   /** @type {string|null} */
   let rule = null;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--lab') {
       labOnly = true;
+    } else if (arg === '--alt') {
+      altOnly = true;
     } else if (arg === '--rule') {
       rule = argv[i + 1] ?? '';
       i += 1;
@@ -456,9 +624,7 @@ export async function main(argv, out) {
       ids.push(arg);
     }
   }
-  // A sandbox has no line to judge, so the bench never plays it.
-  const lab = (await loadLabLevels()).filter((l) => l.sandbox !== true);
-  const pool = labOnly ? lab : [...LEVELS, ...lab];
+  const pool = benchPool({ campaign: LEVELS, lab: await loadLabLevels(), alt: await loadAltLevels() }, { labOnly, altOnly });
   const unknown = ids.filter((id) => !pool.some((l) => l.id === id));
   if (unknown.length > 0) {
     out(`no level ${unknown.join(', ')}`);
@@ -468,19 +634,29 @@ export async function main(argv, out) {
   let levels = ids.length === 0 ? pool : pool.filter((l) => ids.includes(l.id));
   if (rule !== null) levels = levels.map((l) => withRules(l, { [rule]: true }));
 
-  const width = 16;
-  out(`${'level'.padEnd(6)}${PLAYERS.map((p) => p.padEnd(width)).join('')}`.trimEnd());
-  let flagged = 0;
+  let passed = 0;
   for (const level of levels) {
-    const runs = benchLevel(level);
-    const clean = PLAYERS.some((p) => runs[p]?.outcome === 'won' && runs[p]?.clean === true);
-    if (clean) flagged += 1;
-    const row = `${level.id.padEnd(6)}${PLAYERS.map((p) => cell(runs[p]).padEnd(width)).join('')}`.trimEnd();
-    out(clean ? `${row}  <-` : row);
+    const { pass, witness, failure, shortcuts, warnings, capped, runs, starts } = assessLevel(level);
+    if (pass) passed++;
+    out(`${level.id}  ${pass ? 'PASS' : 'FAIL'}  ${level.name} (${starts} starts)`);
+    if (witness) {
+      out(`  Recording ${witness.line} wins on turn ${witness.turn}. Turns with a tactical consequence: ${witness.choices.length}.`);
+      const choice = witness.choices[0];
+      if (choice) out(`  Turn ${choice.turn}: change "${describeOrder(choice.order)}" to "${describeOrder(choice.replacement)}" -> ${choice.cost}.`);
+    } else {
+      out(`  No verified win: ${failure}.`);
+    }
+    for (const [label, players] of /** @type {Array<[string, string[]]>} */ ([['Shortcut', shortcuts], ['Warning', warnings]])) {
+      for (const player of players) {
+        const run = /** @type {RecordedRun} */ (runs[player]);
+        const start = run.deploy.map((d) => `${d.type}@${d.at}`).join(' ');
+        out(`  ${label}: ${player}, ${start}, ${run.reverseTies ? 'last' : 'first'} tied walk -> won on turn ${run.turn}${run.clean ? '' : ', den damaged'}.`);
+      }
+    }
+    if (capped.length) out(`  Inconclusive after ${MAX_TURNS} turns: ${capped.join(', ')}.`);
   }
-  out('');
-  out(`${flagged} of ${levels.length} levels are won by a boring player with every den whole${rule === null ? '' : ` (with ${rule})`}.`);
-  return 0;
+  out(`${passed}/${levels.length} rounds passed${rule === null ? '' : ` with ${rule}`}.`);
+  return passed === levels.length && levels.length > 0 ? 0 : 1;
 }
 
 const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;

@@ -72,7 +72,7 @@
 import { DIR_ORDER, DIRS, add, inBounds, key, manhattan, neighbours } from './grid.js';
 import { canEnter, isHabitat, pave } from './terrain.js';
 import { BAND_TYPES, TARGET_PRIORITY, actionsFor } from './units.js';
-import { bandById, occupantAt, stepBand, reachable, copyPlan, botGrows } from './band.js';
+import { bandById, occupantAt, stepBand, reachable, copyPlan, botGrows, bandAfterStep } from './band.js';
 import { resolveAction } from './actions.js';
 import { shotTargets, stopsShot } from './lanes.js';
 
@@ -310,6 +310,142 @@ function bestPriorityFrom(state, bot, pos) {
 }
 
 /**
+ * The bot's cells after its head walks `path`, by its ordinary movement.
+ * @param {BattleState} state
+ * @param {Band} bot
+ * @param {Pos[]} path
+ * @returns {Pos[]}
+ */
+function cellsAfterWalk(state, bot, path) {
+  let band = bot;
+  for (const p of path) band = bandAfterStep(state, band, p);
+  return band.cells;
+}
+
+/**
+ * Under snake bodies: how many steps the bot, its body standing as `cells`,
+ * needs to bring its head onto a tile in `goalKeys`, or undefined when it
+ * never can. It never steps into its own body: the body clears behind the
+ * head, so its cell `i` (of `L`, the head being 0) is free from step
+ * `L - i` on, or that much later while the bot is still growing back to
+ * its full length (its tail stays put as it grows). Tiles in `blocked`,
+ * and tiles `passable` refuses, are never entered. Only the bot's own body
+ * moves in this count; everything else stands as it is now.
+ * @param {BattleState} state
+ * @param {Band} bot
+ * @param {Pos[]} cells
+ * @param {Set<string>} goalKeys
+ * @param {(tile: Tile) => boolean} passable
+ * @param {Set<string>} blocked
+ * @param {boolean} [loop]  when the quick count finds nothing, try again
+ *   letting the walk loop back over its own cleared trail (slower)
+ * @returns {number|undefined}
+ */
+export function snakeDistance(state, bot, cells, goalKeys, passable, blocked, loop = true) {
+  const head = cells[0];
+  // Measured as the plain distance field would: a walk may not end on a
+  // blocked tile, and it ends on a goal or on ground the route may use.
+  if (blocked.has(key(head))) return undefined;
+  if (goalKeys.has(key(head))) return 0;
+  if (!passable(state.tiles[head[1]][head[0]])) return undefined;
+  const grow = botGrows(bot) ? Math.max(0, bot.maxLen - cells.length) : 0;
+  /** @type {Map<string, number>} */
+  const freeFrom = new Map();
+  cells.forEach((cell, i) => {
+    if (i > 0) freeFrom.set(key(cell), cells.length - i + grow);
+  });
+  const found = plainSnakeDistance(state, head, goalKeys, passable, blocked, freeFrom);
+  if (found !== undefined || !loop) return found;
+  return loopingSnakeDistance(state, head, goalKeys, passable, blocked, freeFrom, cells.length + grow);
+}
+
+/**
+ * `snakeDistance`'s first try: every tile entered at most once, at the
+ * first step it may be. Quick, and right unless the only way loops back
+ * over ground the head has already crossed.
+ * @param {BattleState} state
+ * @param {Pos} head
+ * @param {Set<string>} goalKeys
+ * @param {(tile: Tile) => boolean} passable
+ * @param {Set<string>} blocked
+ * @param {Map<string, number>} freeFrom
+ * @returns {number|undefined}
+ */
+function plainSnakeDistance(state, head, goalKeys, passable, blocked, freeFrom) {
+  const entered = new Set([key(head)]);
+  /** @type {Pos[]} */
+  let layer = [head];
+  for (let step = 1; layer.length > 0; step += 1) {
+    /** @type {Pos[]} */
+    const next = [];
+    for (const from of layer) {
+      for (const to of neighbours(state, from)) {
+        const k = key(to);
+        if (entered.has(k) || blocked.has(k)) continue;
+        if (!passable(state.tiles[to[1]][to[0]])) continue;
+        // A body tile not yet left may be entered later, from another side.
+        if (step < (freeFrom.get(k) ?? 0)) continue;
+        if (goalKeys.has(k)) return step;
+        entered.add(k);
+        next.push(to);
+      }
+    }
+    // The head never waits: the body clears only as it walks.
+    layer = next;
+  }
+  return undefined;
+}
+
+/**
+ * `snakeDistance`'s second try, only when the first finds nothing: the
+ * same count, but a walk may come back onto a tile it crossed itself once
+ * `length` steps have passed since (its trail has cleared by then), so a
+ * way that loops round, up a pocket and back down, is found. Each step
+ * keeps one walk per tile, and each walk checks its own trail. Bounded by
+ * the board's size and the bot's length.
+ * @param {BattleState} state
+ * @param {Pos} head
+ * @param {Set<string>} goalKeys
+ * @param {(tile: Tile) => boolean} passable
+ * @param {Set<string>} blocked
+ * @param {Map<string, number>} freeFrom
+ * @param {number} length  the bot's length once grown
+ * @returns {number|undefined}
+ */
+function loopingSnakeDistance(state, head, goalKeys, passable, blocked, freeFrom, length) {
+  /** @typedef {{at: string, step: number, back: Walked|null}} Walked */
+  /** @type {(walk: Walked, k: string, step: number) => boolean} */
+  const crossedLately = (walk, k, step) => {
+    for (let w = /** @type {Walked|null} */ (walk); w !== null && step - w.step < length; w = w.back) {
+      if (w.at === k) return true;
+    }
+    return false;
+  };
+  const last = state.width * state.height + length;
+  /** @type {Array<{pos: Pos, walk: Walked}>} */
+  let layer = [{ pos: head, walk: { at: key(head), step: 0, back: null } }];
+  for (let step = 1; step <= last && layer.length > 0; step += 1) {
+    /** @type {Array<{pos: Pos, walk: Walked}>} */
+    const next = [];
+    const inNext = new Set();
+    for (const { pos, walk } of layer) {
+      for (const to of neighbours(state, pos)) {
+        const k = key(to);
+        if (blocked.has(k) || inNext.has(k)) continue;
+        if (!passable(state.tiles[to[1]][to[0]])) continue;
+        if (step < (freeFrom.get(k) ?? 0)) continue;
+        if (crossedLately(walk, k, step)) continue;
+        if (goalKeys.has(k)) return step;
+        inNext.add(k);
+        next.push({ pos: to, walk: { at: k, step, back: walk } });
+      }
+    }
+    layer = next;
+  }
+  return undefined;
+}
+
+/**
  * The walk that gets the bot nearest to a goal tile this turn. Ties go to
  * the shorter walk, then the lower `rank` of the tile it ends on (when
  * given), then the smaller y, then the smaller x.
@@ -321,9 +457,11 @@ function bestPriorityFrom(state, bot, pos) {
  * standing in its lane. Only if the bands it walks around block every
  * route does the bot count them as not there, so it closes in and waits.
  * Tiles in `avoid` are never on a route, in either count, unless they are
- * goals. Under snake bodies the bot's own cells between its head and its
- * tail count as in `avoid`: it cannot step back onto them (its tail moves
- * off as it steps), so a bot whose goal lies behind its neck walks round.
+ * goals. Under snake bodies the walks offered are only those the rule
+ * allows (never into its own body), and each is measured from its end with
+ * the bot's body as it then stands clearing behind it (see
+ * `snakeDistance`), so a bot whose goal lies behind its neck walks round,
+ * and one in a corner turns out of it.
  * Null when no tile the bot can walk to has any route to a goal even then.
  * @param {BattleState} state
  * @param {Band} bot
@@ -337,11 +475,9 @@ function approach(state, bot, goals, passable, rank, avoid = new Set()) {
   if (goals.length === 0) return null;
   const options = walkOptions(state, bot, BAND_TYPES[bot.type].speed);
   const goalKeys = new Set(goals.map(key));
-  const shunned = state.rules?.snakeBodies === true
-    ? new Set([...avoid, ...bot.cells.slice(1, -1).map(key)])
-    : avoid;
+  const snake = state.rules?.snakeBodies === true;
   /** @type {Set<string>} */
-  const kept = new Set([...shunned].filter((k) => !goalKeys.has(k)));
+  const kept = new Set([...avoid].filter((k) => !goalKeys.has(k)));
   /** @type {Set<string>} */
   const others = new Set(kept);
   for (const band of state.bands) {
@@ -350,12 +486,29 @@ function approach(state, bot, goals, passable, rank, avoid = new Set()) {
       if (!sees(state, bot, band, cell)) others.add(key(cell));
     }
   }
+  // The plain field is what the harvester's strike reads its route from.
+  // Under snake bodies it is counted round the bot's neck, which is the way
+  // the bot goes this turn; each walk's own distance is `snakeDistance`.
+  const neck = snake ? bot.cells.slice(1, -1).map(key).filter((k) => !goalKeys.has(k)) : [];
   for (const blocked of [others, kept]) {
-    const field = distanceField(state, goals, passable, blocked);
+    const field = distanceField(state, goals, passable, neck.length > 0 ? new Set([...blocked, ...neck]) : blocked);
     /** @type {{dest: Pos, path: Pos[], dist: number, rank: number}|null} */
     let best = null;
-    for (const option of options) {
-      const dist = field.get(key(option.dest));
+    // Under snake bodies: the quick count for every walk, and only if no
+    // walk has a way by it, the slower count that may loop round.
+    const after = snake ? options.map((option) => cellsAfterWalk(state, bot, option.path)) : [];
+    let dists = snake
+      ? after.map((cells) => snakeDistance(state, bot, cells, goalKeys, passable, blocked, false))
+      : options.map((option) => field.get(key(option.dest)));
+    // (Not when no walk could get there even with its body out of the way.)
+    if (snake && dists.every((d) => d === undefined)) {
+      const open = distanceField(state, goals, passable, blocked);
+      if (options.some((option) => open.has(key(option.dest)))) {
+        dists = after.map((cells) => snakeDistance(state, bot, cells, goalKeys, passable, blocked));
+      }
+    }
+    for (const [i, option] of options.entries()) {
+      const dist = dists[i];
       if (dist === undefined) continue;
       const candidate = {
         dest: option.dest,

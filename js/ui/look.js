@@ -63,12 +63,12 @@ const SIDES = Object.freeze([['n', 0, -1], ['e', 1, 0], ['s', 0, 1], ['w', -1, 0
  * @returns {boolean}
  */
 function isWet(tile) {
-  return tile.kind === 'water' || (tile.kind === 'dam' && tile.under === 'water');
+  return tile.kind === 'water' || ((tile.kind === 'dam' || tile.kind === 'ford') && tile.under === 'water');
 }
 
 /**
  * The ground of every tile, row by row. Open ground right beside water
- * (or a dam over water) is riverbank.
+ * (or a dam or a ford over water) is riverbank.
  * @param {BattleState} state
  * @returns {GroundKey[][]}
  */
@@ -156,6 +156,12 @@ export function tileBlend(grounds, x, y) {
     const sa = beside[a];
     const sb = beside[b];
     const diagonal = at(dx, dy);
+    // A crossing: this tile and the diagonal one are one surface, the two
+    // beside the corner another. Rounding all four corners there leaves a
+    // pinched bow tie, so the lower surface runs through: only the higher
+    // tiles are rounded, and the lower ones keep their corner square.
+    const crossing = diagonal === mine && sa === sb && sa !== mine;
+    if (crossing && rank(mine) < rank(sa)) continue;
     if (sa === sb && sa !== mine) {
       out.cuts.push({ corner, fill: sa, beach: rank(mine) > rank(sa) ? mine : null });
     } else if (rank(diagonal) > rank(mine) && sa !== diagonal && sb !== diagonal) {

@@ -243,9 +243,9 @@ export function motionTracks(steps, before, options = {}) {
     const was = row === undefined ? undefined : row[at[0]];
     /** @type {'water'|'hole'|null} */
     let under = null;
-    if (kind === 'dam') {
+    if (kind === 'dam' || kind === 'ford') {
       if (from === 'hole' || from === 'water') under = from;
-      else under = was !== undefined && was.kind === 'dam' ? was.under : 'water';
+      else under = was !== undefined && was.kind === kind ? was.under : 'water';
     }
     const variant = kind === 'open' && was !== undefined && was.kind === 'open' ? was.variant : null;
     return { kind, variant: kind === 'open' ? variant ?? 'grass' : null, under };
@@ -259,8 +259,8 @@ export function motionTracks(steps, before, options = {}) {
     const p = /** @type {Pos} */ ([at[0] + dx, at[1] + dy]);
     const k = kinds.get(`${p[0]},${p[1]}`) ?? /** @type {TerrainKind|undefined} */ (tileKindOf(before)(p));
     if (k === 'water') return true;
-    if (k !== 'dam') return false;
-    const t = tileAs(p, 'dam');
+    if (k !== 'dam' && k !== 'ford') return false;
+    const t = tileAs(p, k);
     return t.under === 'water';
   });
 
