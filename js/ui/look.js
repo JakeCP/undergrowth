@@ -1,8 +1,8 @@
 // The pure half of the board's look (look-and-motion spec, "Look"). No
 // DOM: board.js draws from these.
 //
-// - which ground each tile is filled with, and where two grounds meet
-//   (those sides get a soft inner shadow instead of a hard grid line);
+// - which ground each tile stands on, and how its square is blended
+//   into the surfaces round it (tileBlend), so no grid of tiles shows;
 // - when the faint grid shows (only during move or target selection);
 // - the forest variety, picked from the tile position;
 // - a band's tokens: one per cell, linked by the link rule in links.js,
@@ -23,7 +23,7 @@
  * @typedef {{kind: TreeKind, x: number, y: number, size: number, tone: number}} Tree
  */
 
-import { groundKey } from './patterns.js';
+import { groundKey, surfaceOf, SURFACES } from './patterns.js';
 import { bandLinks } from './links.js';
 import { inBounds } from '../engine/grid.js';
 import { struckHabitats } from './plans.js';
@@ -84,8 +84,8 @@ export function groundGrid(state) {
 
 /**
  * The sides of a tile, in n, e, s, w order, whose neighbour is on another
- * ground. Those sides get a soft inner shadow, so grounds blend instead
- * of meeting at a hard line. Same-ground tiles join without a seam, and
+ * surface (js/ui/patterns.js, SURFACE: grass, stubble, paving or water).
+ * Tiles of one surface join without a seam, whatever stands on them, and
  * the board edge gets nothing.
  * @param {GroundKey[][]} grounds
  * @param {number} x
@@ -93,13 +93,74 @@ export function groundGrid(state) {
  * @returns {Side[]}
  */
 export function softEdges(grounds, x, y) {
-  const mine = grounds[y][x];
+  const mine = surfaceOf(grounds[y][x]);
   /** @type {Side[]} */
   const out = [];
   for (const [side, dx, dy] of SIDES) {
     const row = grounds[y + dy];
     const other = row === undefined ? undefined : row[x + dx];
-    if (other !== undefined && other !== mine) out.push(side);
+    if (other !== undefined && surfaceOf(other) !== mine) out.push(side);
+  }
+  return out;
+}
+
+/** @typedef {import('./patterns.js').Surface} Surface */
+/** @typedef {'nw'|'ne'|'se'|'sw'} Corner */
+/**
+ * How a tile's square is blended into the surfaces round it, so the
+ * board reads as land and not as a grid:
+ *   shade  the sides of a water tile that meet land: a soft inner
+ *          shadow, the water lying a little below its banks;
+ *   spills the sides that meet a higher surface (SURFACES, later is
+ *          higher): that surface's colour fades in from the side, wet
+ *          earth beside water, straw beside stubble, grit beside paving;
+ *   fades  the corners that touch a higher surface only diagonally: the
+ *          same fade, round the corner;
+ *   cuts   the corners where both neighbours are one other surface: the
+ *          corner is rounded off and filled with that surface (`fill`),
+ *          so a brook bends and a field has no square corners. `beach`
+ *          is this tile's own surface when it is the higher one: its
+ *          spill colour then lies over the rounded-off corner.
+ * @typedef {{shade: Side[], spills: Array<{side: Side, from: Surface}>, fades: Array<{corner: Corner, from: Surface}>, cuts: Array<{corner: Corner, fill: Surface, beach: Surface|null}>}} TileBlend
+ */
+
+/** @type {ReadonlyArray<[Corner, Side, Side, number, number]>} */
+const CORNERS = Object.freeze([['nw', 'n', 'w', -1, -1], ['ne', 'n', 'e', 1, -1], ['se', 's', 'e', 1, 1], ['sw', 's', 'w', -1, 1]]);
+
+/**
+ * The blend of tile (x, y). Beyond the board's edge the tile's own
+ * surface is taken to carry on, so nothing is rounded or faded there.
+ * @param {GroundKey[][]} grounds
+ * @param {number} x
+ * @param {number} y
+ * @returns {TileBlend}
+ */
+export function tileBlend(grounds, x, y) {
+  const mine = surfaceOf(grounds[y][x]);
+  const rank = (/** @type {Surface} */ s) => SURFACES.indexOf(s);
+  /** @param {number} dx @param {number} dy @returns {Surface} */
+  const at = (dx, dy) => {
+    const row = grounds[y + dy];
+    const key = row === undefined ? undefined : row[x + dx];
+    return key === undefined ? mine : surfaceOf(key);
+  };
+  /** @type {Record<Side, Surface>} */
+  const beside = { n: at(0, -1), e: at(1, 0), s: at(0, 1), w: at(-1, 0) };
+  /** @type {TileBlend} */
+  const out = { shade: [], spills: [], fades: [], cuts: [] };
+  for (const [side] of SIDES) {
+    if (mine === 'water' && beside[side] !== mine) out.shade.push(side);
+    if (rank(beside[side]) > rank(mine)) out.spills.push({ side, from: beside[side] });
+  }
+  for (const [corner, a, b, dx, dy] of CORNERS) {
+    const sa = beside[a];
+    const sb = beside[b];
+    const diagonal = at(dx, dy);
+    if (sa === sb && sa !== mine) {
+      out.cuts.push({ corner, fill: sa, beach: rank(mine) > rank(sa) ? mine : null });
+    } else if (rank(diagonal) > rank(mine) && sa !== diagonal && sb !== diagonal) {
+      out.fades.push({ corner, from: diagonal });
+    }
   }
   return out;
 }

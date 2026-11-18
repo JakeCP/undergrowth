@@ -135,7 +135,7 @@ test('no screen keeps a button or panel look of its own', () => {
   assert.match(read('js/ui/title-view.js'), /'title-start ui-btn ui-btn--primary/);
   assert.match(read('js/ui/map-view.js'), /march\.className = 'ui-btn ui-btn--primary'/);
   assert.match(read('js/ui/deploy-view.js'), /startBtn\.className = 'ui-btn ui-btn--primary'/);
-  assert.match(read('js/ui/result-view.js'), /'ui-btn ui-btn--primary', 'Back to map'/);
+  assert.match(read('js/ui/result-view.js'), /'ui-btn ui-btn--primary', opts\.mapLabel \?\? 'Back to map'/);
   assert.match(read('js/ui/shop-view.js'), /item\.affordable \? 'ui-btn--primary' : 'ui-btn--secondary'/);
 });
 

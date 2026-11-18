@@ -36,10 +36,10 @@ test('the fox never digs or builds', () => {
   assert.deepEqual(effects, ['attack']);
 });
 
-test('BAND_TYPES contains exactly the eleven types', () => {
+test('BAND_TYPES contains exactly the sixteen types', () => {
   assert.deepEqual(
     Object.keys(BAND_TYPES).sort(),
-    ['ants', 'badger', 'bear', 'beaver', 'bees', 'fox', 'harvester', 'hedgehog', 'owl', 'planter', 'saw'],
+    ['ants', 'badger', 'beacon', 'bear', 'beaver', 'bees', 'coil', 'crane', 'fox', 'harvester', 'hedgehog', 'hunter', 'owl', 'planter', 'saw', 'tower'],
   );
 });
 
@@ -68,7 +68,7 @@ test('every band type has every BandType field with the right shape', () => {
       assert.equal(typeof a.id, 'string', `${id} action`);
       assert.equal(typeof a.label, 'string', `${id}/${a.id}`);
       assert.ok(a.label.length > 0, `${id}/${a.id}`);
-      assert.ok(['attack', 'dig', 'build', 'mow', 'saw', 'pave'].includes(a.effect), `${id}/${a.id}`);
+      assert.ok(['attack', 'dig', 'build', 'mow', 'saw', 'pave', 'shot', 'crush'].includes(a.effect), `${id}/${a.id}`);
       assert.equal(typeof a.damage, 'number', `${id}/${a.id}`);
       assert.equal(typeof a.minRange, 'number', `${id}/${a.id}`);
       assert.equal(typeof a.maxRange, 'number', `${id}/${a.id}`);
@@ -96,6 +96,11 @@ const TABLE = [
   ['harvester', 'Harvester', 'bots', '🚜', 2, false, 3, 3, null, 0],
   ['saw', 'Saw-drone', 'bots', '🪚', 3, false, 2, 2, null, 0],
   ['planter', 'Planter-bot', 'bots', '🤖', 2, false, 3, 3, null, 0],
+  ['hunter', 'Hunter', 'bots', '🛸', 4, false, 4, 4, null, 0],
+  ['tower', 'Watchtower', 'bots', '🗼', 0, false, 1, 1, null, 0],
+  ['beacon', 'Beacon', 'bots', '🚨', 0, false, 1, 1, null, 0],
+  ['crane', 'Crane', 'bots', '🏗️', 1, false, 3, 3, null, 0],
+  ['coil', 'Coil', 'bots', '⛓️', 4, false, 9, 16, null, 0],
 ];
 
 test('band type scalar fields match the brief table', () => {
@@ -159,6 +164,18 @@ test('base actions match the brief', () => {
   });
   assert.deepEqual(action('planter', 'pave'), {
     id: 'pave', label: 'Pave', effect: 'pave', damage: 1, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
+  });
+  assert.deepEqual(action('tower', 'shoot'), {
+    id: 'shoot', label: 'Shoot', effect: 'shot', damage: 2, minRange: 1, maxRange: 6, pattern: 'single', push: 0, dirs: 4,
+  });
+  assert.deepEqual(action('beacon', 'shoot'), {
+    id: 'shoot', label: 'Shoot', effect: 'shot', damage: 2, minRange: 1, maxRange: 3, pattern: 'single', push: 0, dirs: 8,
+  });
+  assert.deepEqual(action('crane', 'swing'), {
+    id: 'swing', label: 'Swing', effect: 'shot', damage: 3, minRange: 2, maxRange: 2, pattern: 'single', push: 0, dirs: 4,
+  });
+  assert.deepEqual(action('coil', 'squeeze'), {
+    id: 'squeeze', label: 'Squeeze', effect: 'crush', damage: 2, minRange: 1, maxRange: 1, pattern: 'single', push: 0,
   });
 });
 

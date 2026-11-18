@@ -44,6 +44,14 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* No scrollbar: it would push the column off the middle of the screen,
+     out of line with the header and the panel. The wheel, a drag and the
+     arrow keys all still scroll it. */
+  scrollbar-width: none;
+}
+
+.map-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .map-column {
@@ -91,6 +99,16 @@
 
 .map-label {
   user-select: none;
+  letter-spacing: 0.02em;
+}
+
+/* The chosen place's name warms to the colour of its light. */
+.map-label__name {
+  transition: fill 160ms ease;
+}
+
+.map-label--chosen .map-label__name {
+  fill: #ffd97a;
 }
 
 /* Mist over land not yet reached: a pale wash, uneven so it never
@@ -122,6 +140,14 @@
    marker and never under 44px. */
 .map-screen .map-node-btn {
   -webkit-tap-highlight-color: transparent;
+  transition: background 160ms ease;
+}
+
+/* Under the pointer a place warms a little, before it is chosen. */
+@media (hover: hover) {
+  .map-screen .map-node-btn:hover {
+    background: radial-gradient(circle, rgba(255, 217, 122, 0.34) 0%, rgba(255, 217, 122, 0.2) 45%, rgba(255, 217, 122, 0) 70%);
+  }
 }
 
 .map-screen .map-node-btn:focus-visible {
@@ -165,6 +191,12 @@ body:has(> .scene) .map-screen .map-panel {
    glints; the mist drifts very slowly. Transform and opacity only, as
    on the board, and all of it still under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
+  .map-select {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: map-chosen 2.6s ease-in-out infinite;
+  }
+
   .map-glow {
     transform-box: fill-box;
     transform-origin: center;
@@ -187,6 +219,11 @@ body:has(> .scene) .map-screen .map-panel {
 @keyframes map-glow {
   0%, 100% { transform: scale(0.9); opacity: 0.55; }
   50% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes map-chosen {
+  0%, 100% { transform: scale(0.96); opacity: 0.85; }
+  50% { transform: scale(1.04); opacity: 1; }
 }
 
 @keyframes map-bob {

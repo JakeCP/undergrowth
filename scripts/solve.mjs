@@ -393,10 +393,14 @@ function endTurn(state, ignoreHabitats) {
     band.moved = false;
     band.acted = false;
   }
-  // What battle.js checks after the bots' turn, less the den rule. Nothing
-  // the bots do can win the battle, so only the ways to lose are left.
+  // What battle.js checks after the bots' turn, less the den rule. The bots
+  // can win the battle for us: a bot that strikes the hedgehog takes bristle
+  // damage, and the last one may die of it. The search only needs the
+  // outcome, so the field is not cleared as battle.js would.
   const hasTrapped = state.bands.some((b) => b.id.startsWith('trapped-'));
-  if (!state.bands.some((b) => b.side === 'us' && !b.trapped)) {
+  if (!state.bands.some((b) => b.side === 'bots')) {
+    state.outcome = 'won';
+  } else if (!state.bands.some((b) => b.side === 'us' && !b.trapped)) {
     state.outcome = 'lost';
     state.lostReason = 'wiped';
   } else if (state.goal === 'rescue' && !hasTrapped) {
@@ -469,7 +473,9 @@ function turnEnds(state, cap, ignoreHabitats, allOrders) {
  * From each kept position it finds the positions one turn of player moves
  * reaches (turnEnds), keeps the best `perNode` of them, ends the turn on
  * each (the bots' turn is the costly part), and keeps the best `beam` of
- * all the new positions for the next turn.
+ * all the new positions for the next turn. A win can come in either half
+ * of a turn: from the player's moves, or in the bots' turn that follows
+ * (a line that ends with `{kind: 'end'}`).
  * Returns every distinct win found on the first turn that has one (just
  * the first when `collect` is off), or an empty list.
  * @param {BattleState} start
@@ -500,7 +506,7 @@ export function search(start, options = {}) {
     /** @type {Node[]} */
     const next = [];
 
-    for (const node of layer) {
+    nodes: for (const node of layer) {
       const { ends, wins: found } = turnEnds(node.state, cap, ignoreHabitats, allOrders);
       for (const w of found) {
         if (winKeys.has(w.key)) continue;
@@ -508,12 +514,22 @@ export function search(start, options = {}) {
         wins.push({ moves: [...lineOf(node), ...w.moves], turns: turn });
       }
       if (wins.length > 0 && !options.collect) break;
-      if (wins.length > 0) continue;
 
       for (const p of best([...ends.values()], (e) => e.state, perNode, ignoreHabitats)) {
         const state = copyState(p.state);
         endTurn(state, ignoreHabitats);
+        // A win in the bots' turn is as short as one in ours: it is this turn's.
+        if (state.outcome === 'won') {
+          const k = stateKey(state);
+          if (winKeys.has(k)) continue;
+          winKeys.add(k);
+          wins.push({ moves: [...lineOf(node), ...p.moves, { kind: 'end' }], turns: turn });
+          if (!options.collect) break nodes;
+          continue;
+        }
         if (state.outcome !== null) continue;
+        // Once this turn holds a win, no later turn is searched.
+        if (wins.length > 0) continue;
         const k = stateKey(state);
         if (seen.has(k)) continue;
         seen.add(k);
@@ -701,15 +717,16 @@ export function formatSolution(deploy, moves) {
   return lines.join('\n');
 }
 
-const BAND_CHARS = { fox: 'Ff', hedgehog: 'Nn', ants: 'Aa', badger: 'Gg', beaver: 'Vv', bear: 'Rr', owl: 'Oo', bees: 'Ee', harvester: '?m', saw: '?w', planter: '?p' };
+const BAND_CHARS = { fox: 'Ff', hedgehog: 'Nn', ants: 'Aa', badger: 'Gg', beaver: 'Vv', bear: 'Rr', owl: 'Oo', bees: 'Ee', harvester: '?m', saw: '?w', planter: '?p', hunter: '?u', tower: '?t', beacon: '?y', crane: '?c', coil: '?o' };
 
 /**
  * The board as text. Terrain uses the level legend ('h' is a damaged den).
  * Animals: F fox, N hedgehog, A ants, G badger, V beaver, R bear, O owl,
- * E bees, body in lower case. Bots:
- * the head is the bot's number in the level's list, the body m (harvester),
- * w (saw) or p (planter). Uncaptured objectives and pickups show when
- * nobody stands on them. Each bot's plan follows.
+ * E bees, body in lower case. Bots: the head is the bot's number in the
+ * level's list, the body m (harvester), w (saw), p (planter), u (hunter),
+ * t (watchtower), y (beacon), c (crane) or o (coil); a one-tile bot shows
+ * only its number. Uncaptured objectives and pickups show when nobody
+ * stands on them. Each bot's plan follows.
  * @param {BattleState} s
  * @returns {string}
  */

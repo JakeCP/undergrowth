@@ -249,7 +249,7 @@ function node(tag, className, text) {
  * it. Until then a press (a tap, Enter, Space or R) only finishes the
  * entrance at once, as on the board; the next one acts.
  * @param {HTMLElement} root
- * @param {{level: Level, final: BattleState, reward: Reward|null, onMap: () => void, onReplay: () => void, assets?: Readonly<Record<string, string>>}} opts
+ * @param {{level: Level, final: BattleState, reward: Reward|null, onMap: () => void, onReplay: () => void, assets?: Readonly<Record<string, string>>, mapLabel?: string}} opts
  * @returns {Promise<void>}
  */
 export function renderResult(root, opts) {
@@ -366,7 +366,7 @@ export function renderResult(root, opts) {
     go();
   };
 
-  const mapBtn = /** @type {HTMLButtonElement} */ (node('button', 'ui-btn ui-btn--primary', 'Back to map'));
+  const mapBtn = /** @type {HTMLButtonElement} */ (node('button', 'ui-btn ui-btn--primary', opts.mapLabel ?? 'Back to map'));
   mapBtn.type = 'button';
   mapBtn.appendChild(keyHint('Enter'));
   mapBtn.addEventListener('click', () => leave(opts.onMap));

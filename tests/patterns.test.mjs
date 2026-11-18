@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import * as patterns from '../js/ui/patterns.js';
 import {
   PALETTE, GROUND, GROUND_KEYS, REQUIRED_TEXTURES, OPTIONAL_TEXTURES,
-  FALLBACK_SPAN, TEXTURE_SPAN,
+  SURFACE, SURFACES, SURFACE_GROUND, surfaceOf,
+  FALLBACK_SPAN, TEXTURE_SPAN, FIELD_SPAN, GRASS_VARIANTS, PATCH_MASK,
+  grassPatches, layerId,
   groundKey, fallbackPattern, groundPattern, patternId, groundFill, textureUrl,
   definePattern, defineGroundPatterns,
 } from '../js/ui/patterns.js';
@@ -75,7 +77,24 @@ test('every terrain kind, the two habitat kinds included, has a ground', () => {
   }
   assert.equal(groundKey({ kind: 'habitat', variant: null, under: null }), 'habitat');
   assert.equal(groundKey({ kind: 'habitatDamaged', variant: null, under: null }), 'habitatDamaged');
-  assert.notEqual(GROUND.habitat.colour, GROUND.habitatDamaged.colour);
+});
+
+test('trees, rocks, dens, holes, flowers and the bank all stand on the same grass', () => {
+  // Jake, 2026-11-16: a square of other ground under each read as a grid.
+  for (const key of ['open', 'meadow', 'bank', 'forest', 'hole', 'stones', 'habitat', 'habitatDamaged']) {
+    assert.equal(SURFACE[key], 'grass', key);
+    assert.equal(surfaceOf(key), 'grass');
+    assert.deepEqual(GROUND[key], GROUND.open, `${key} is filled as open ground is`);
+    assert.deepEqual(
+      { ...groundPattern(key, ['grass']), id: '' }, { ...groundPattern('open', ['grass']), id: '' },
+      `${key}: the same picture from the same origin, so no seam`,
+    );
+    assert.deepEqual({ ...fallbackPattern(key), id: '' }, { ...fallbackPattern('open'), id: '' });
+  }
+  for (const key of ['water', 'stubble', 'paving']) assert.equal(SURFACE[key], key, `${key} is a surface of its own`);
+  assert.deepEqual(Object.keys(SURFACE).sort(), [...GROUND_KEYS].sort());
+  assert.deepEqual(SURFACES, ['grass', 'stubble', 'paving', 'water'], 'lowest first: the higher spills onto the lower');
+  for (const s of SURFACES) assert.equal(SURFACE[SURFACE_GROUND[s]], s);
 });
 
 test('a dam shows what it was built over', () => {
@@ -101,7 +120,7 @@ test('an unknown terrain kind falls back to open ground', () => {
 
 test('the grounds use the textures the spec lists', () => {
   assert.deepEqual(REQUIRED_TEXTURES, ['grass', 'soil', 'water', 'stubble', 'paving', 'stone']);
-  assert.deepEqual(OPTIONAL_TEXTURES, ['meadow', 'bank']);
+  assert.deepEqual(OPTIONAL_TEXTURES, ['meadow', 'bank', 'grass-lush', 'grass-clover']);
   const known = new Set([...REQUIRED_TEXTURES, ...OPTIONAL_TEXTURES]);
   const used = new Set();
   for (const key of GROUND_KEYS) {
@@ -114,13 +133,15 @@ test('the grounds use the textures the spec lists', () => {
     // An optional texture is always backed by a required one.
     assert.ok(REQUIRED_TEXTURES.includes(textures[textures.length - 1]), `${key} ends on a required texture`);
   }
-  assert.deepEqual([...used].sort(), [...known].sort(), 'every texture is used by some ground');
+  // Soil, stone, meadow and bank are still made, but nothing is filled
+  // with them since everything on grass stands on plain grass.
+  assert.deepEqual([...used].sort(), ['grass', 'paving', 'stubble', 'water']);
   assert.deepEqual(GROUND.open.textures, ['grass']);
-  assert.deepEqual(GROUND.hole.textures, ['soil']);
+  assert.deepEqual(GROUND.hole.textures, ['grass']);
   assert.deepEqual(GROUND.water.textures, ['water']);
   assert.deepEqual(GROUND.stubble.textures, ['stubble']);
   assert.deepEqual(GROUND.paving.textures, ['paving']);
-  assert.deepEqual(GROUND.stones.textures, ['stone']);
+  assert.deepEqual(GROUND.stones.textures, ['grass']);
 });
 
 // --- the fallback: a flat colour plus subtle code-made noise ---
@@ -158,7 +179,7 @@ test('fallback: the noise is the same every time, and differs from ground to gro
   );
 });
 
-test('patterns span more than one tile and each ground starts its repeat somewhere else', () => {
+test('patterns span more than one tile and each surface starts its repeat somewhere else', () => {
   assert.ok(FALLBACK_SPAN > TILE && FALLBACK_SPAN % TILE === 0);
   assert.ok(TEXTURE_SPAN > TILE && TEXTURE_SPAN % TILE === 0);
   const origins = new Set(GROUND_KEYS.map((key) => {
@@ -166,7 +187,7 @@ test('patterns span more than one tile and each ground starts its repeat somewhe
     assert.ok(spec.x >= 0 && spec.x < spec.size && spec.y >= 0 && spec.y < spec.size);
     return `${spec.x},${spec.y}`;
   }));
-  assert.equal(origins.size, GROUND_KEYS.length);
+  assert.equal(origins.size, SURFACES.length);
 });
 
 // --- textures, when present ---
@@ -187,30 +208,19 @@ test('a ground whose texture is listed as present uses the texture instead', () 
   assert.equal(spec.colour, GROUND.open.colour, 'the flat colour stays underneath while the image loads');
   // The others are not affected.
   assert.deepEqual(groundPattern('water', ['grass']), fallbackPattern('water'));
-  assert.equal(groundPattern('hole', ['grass', 'soil']).image, 'assets/textures/soil.webp');
-  assert.equal(groundPattern('stones', ['stone']).image, 'assets/textures/stone.webp');
+  assert.equal(groundPattern('hole', ['grass', 'soil']).image, 'assets/textures/grass.webp', 'a hole is dug in grass');
+  assert.equal(groundPattern('stones', ['grass', 'stone']).image, 'assets/textures/grass.webp', 'rocks lie on grass');
+  assert.equal(groundPattern('stubble', ['grass', 'stubble']).image, 'assets/textures/stubble.webp');
 });
 
-test('an optional texture is used when present, and its required stand-in when not', () => {
-  assert.equal(groundPattern('meadow', ['grass', 'meadow']).image, 'assets/textures/meadow.webp');
-  assert.equal(groundPattern('meadow', ['grass']).image, 'assets/textures/grass.webp');
-  assert.equal(groundPattern('bank', ['grass', 'bank']).image, 'assets/textures/bank.webp');
-  assert.equal(groundPattern('bank', ['grass']).image, 'assets/textures/grass.webp');
+test('the first of a ground\'s textures that is present wins, and with none it is the fallback', () => {
+  assert.equal(groundPattern('meadow', ['grass', 'meadow']).image, 'assets/textures/grass.webp');
+  assert.equal(groundPattern('bank', ['grass', 'bank']).image, 'assets/textures/grass.webp');
   assert.deepEqual(groundPattern('bank', ['water']), fallbackPattern('bank'));
 });
 
-test('grounds that share a texture are told apart by a tint over it', () => {
-  const forest = groundPattern('forest', ['grass']);
-  const habitat = groundPattern('habitat', ['grass']);
-  const damaged = groundPattern('habitatDamaged', ['grass']);
-  assert.equal(forest.image, 'assets/textures/grass.webp');
-  assert.equal(groundPattern('open', ['grass']).tint, null);
-  for (const spec of [forest, habitat, damaged]) {
-    assert.ok(spec.tint !== null);
-    assert.match(spec.tint.colour, /^#[0-9a-f]{6}$/);
-    assert.ok(spec.tint.opacity > 0 && spec.tint.opacity <= 0.5);
-  }
-  assert.notDeepEqual(habitat.tint, damaged.tint);
+test('no ground is tinted: what stands on a tile says what it is, not the colour under it', () => {
+  for (const key of GROUND_KEYS) assert.equal(groundPattern(key, TEXTURES_PRESENT).tint, null, key);
 });
 
 test('groundPattern reads the generated texture list by default', () => {
@@ -288,17 +298,18 @@ test('definePattern: a fallback becomes a user-space <pattern> of a colour rect 
   });
 });
 
-test('definePattern: a texture becomes colour rect, image, then tint', () => {
+test('definePattern: a texture becomes colour rect, image, then its tint if it has one', () => {
   withFakeDocument((defs) => {
-    const pattern = definePattern(defs, groundPattern('forest', ['grass']));
+    const tinted = { ...groundPattern('forest', ['grass']), tint: { colour: '#2c5a30', opacity: 0.35 } };
+    const pattern = definePattern(defs, tinted);
     assert.deepEqual(pattern.children.map((c) => c.tag), ['rect', 'image', 'rect']);
     const [, image, tint] = pattern.children;
     assert.equal(image.attrs.href, 'assets/textures/grass.webp');
     assert.equal(image.attrs.width, String(TEXTURE_SPAN));
     assert.equal(image.attrs.height, String(TEXTURE_SPAN));
     assert.equal(image.attrs.preserveAspectRatio, 'none');
-    assert.equal(tint.attrs.fill, GROUND.forest.tint.colour);
-    assert.equal(tint.attrs.opacity, String(GROUND.forest.tint.opacity));
+    assert.equal(tint.attrs.fill, '#2c5a30');
+    assert.equal(tint.attrs.opacity, '0.35');
 
     const plain = definePattern(defs, groundPattern('open', ['grass']));
     assert.deepEqual(plain.children.map((c) => c.tag), ['rect', 'image']);
@@ -315,5 +326,78 @@ test('defineGroundPatterns: defines one pattern per ground and returns their fil
     assert.ok(water.children.some((c) => c.tag === 'image'));
     const open = defs.children[GROUND_KEYS.indexOf('open')];
     assert.ok(!open.children.some((c) => c.tag === 'image'));
+  });
+});
+
+// --- the grass field: plain grass with soft patches of its variants ---
+
+const WITH_VARIANTS = ['grass', 'water', ...GRASS_VARIANTS];
+
+test('with grass variants present, every grass ground is the same field from the same origin', () => {
+  const open = groundPattern('open', WITH_VARIANTS);
+  assert.equal(open.size, FIELD_SPAN);
+  assert.ok(FIELD_SPAN >= 8 * TILE * 1.5, 'no 8-tile board shows the field twice');
+  assert.equal(open.layers[0].id, layerId('grass'), 'the plain grass is under everything');
+  assert.deepEqual(open.layers.slice(1).map((l) => l.image), GRASS_VARIANTS.map(textureUrl));
+  for (const layer of open.layers) assert.equal(FIELD_SPAN % layer.size, 0, `${layer.id} repeats evenly in a field`);
+  for (const key of ['meadow', 'bank', 'forest', 'hole', 'stones', 'habitat', 'habitatDamaged']) {
+    assert.deepEqual({ ...groundPattern(key, WITH_VARIANTS), id: '' }, { ...open, id: '' }, key);
+  }
+  assert.deepEqual(groundPattern('water', WITH_VARIANTS).patches, [], 'only grass has patches');
+  assert.deepEqual(groundPattern('open', ['grass']).patches, [], 'no variants, no patches');
+});
+
+test('grass patches: only the variants present, soft, varied, and the same every time', () => {
+  const patches = grassPatches(GRASS_VARIANTS);
+  assert.deepEqual(patches, grassPatches(GRASS_VARIANTS));
+  assert.ok(patches.length >= 30);
+  assert.deepEqual(new Set(patches.map((p) => p.layer)), new Set(GRASS_VARIANTS.map(layerId)));
+  assert.deepEqual(new Set(grassPatches(['grass-clover']).map((p) => p.layer)), new Set([layerId('grass-clover')]));
+  assert.deepEqual(grassPatches([]), []);
+  for (const p of patches) {
+    assert.ok(p.opacity > 0.5, 'a patch shows');
+    assert.ok(p.width >= TILE * 1.5 && p.height >= TILE * 1.5, 'a patch is bigger than a tile, so it does not read as one');
+    assert.ok(p.opacity < 1, 'a patch lets the grass under it through');
+    assert.ok(p.x < FIELD_SPAN && p.x + p.width > 0 && p.y < FIELD_SPAN && p.y + p.height > 0, 'every patch touches the field');
+  }
+});
+
+test('grass patches that cross the field edge are laid again on the far side, so the field repeats with no seam', () => {
+  const patches = grassPatches(GRASS_VARIANTS);
+  const key = (p) => `${p.layer} ${p.width} ${p.height} ${p.opacity}`;
+  for (const p of patches) {
+    if (p.x < 0) assert.ok(patches.some((q) => key(q) === key(p) && Math.abs(q.x - (p.x + FIELD_SPAN)) < 0.2 && Math.abs(q.y - p.y) < 0.2));
+    if (p.y + p.height > FIELD_SPAN) assert.ok(patches.some((q) => key(q) === key(p) && Math.abs(q.y - (p.y - FIELD_SPAN)) < 0.2 && Math.abs(q.x - p.x) < 0.2));
+  }
+});
+
+test('definePattern: a field tiles the plain grass, then masks each patch of a variant over it', () => {
+  withFakeDocument((defs) => {
+    const spec = groundPattern('open', WITH_VARIANTS);
+    const pattern = definePattern(defs, spec);
+    const ids = defs.children.map((c) => c.attrs.id);
+    for (const layer of spec.layers) assert.ok(ids.includes(layer.id), `${layer.id} is defined`);
+    assert.ok(ids.includes(PATCH_MASK));
+    const [colour, base, ...patches] = pattern.children;
+    assert.equal(colour.attrs.fill, spec.colour);
+    assert.equal(base.attrs.fill, `url(#${layerId('grass')})`);
+    assert.equal(patches.length, spec.patches.length);
+    for (const p of patches) assert.equal(p.attrs.mask, `url(#${PATCH_MASK})`);
+    const before = defs.children.length;
+    definePattern(defs, groundPattern('forest', WITH_VARIANTS));
+    assert.equal(defs.children.length, before + 1, 'the layers and the mask are defined only once');
+  });
+});
+
+test('defineGroundPatterns: the grass grounds point at one field, drawn once', () => {
+  withFakeDocument((defs) => {
+    const fills = defineGroundPatterns(defs, WITH_VARIANTS);
+    for (const key of GROUND_KEYS) assert.equal(fills[key], groundFill(key));
+    const byId = new Map(defs.children.map((c) => [c.attrs.id, c]));
+    for (const key of ['meadow', 'bank', 'forest', 'hole', 'stones', 'habitat', 'habitatDamaged']) {
+      assert.equal(byId.get(patternId(key)).attrs.href, '#ug-ground-open', key);
+    }
+    assert.ok(byId.get('ug-ground-open').children.length > 2);
+    assert.ok(byId.get('ug-ground-water').children.some((c) => c.tag === 'image'));
   });
 });

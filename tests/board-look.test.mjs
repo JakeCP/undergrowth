@@ -6,8 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderBoard } from '../js/ui/board.js';
-import { GROUND_KEYS, patternId, groundFill, hasTexture } from '../js/ui/patterns.js';
-import { groundGrid, softEdges, forestTrees, tileMarks } from '../js/ui/look.js';
+import { GROUND_KEYS, SURFACE_GROUND, patternId, groundFill, hasTexture } from '../js/ui/patterns.js';
+import { groundGrid, tileBlend, forestTrees, tileMarks } from '../js/ui/look.js';
 import { bandLinks } from '../js/ui/links.js';
 import { makeState } from './helpers.mjs';
 import { FakeEl, installFakeDom } from './fake-dom.mjs';
@@ -68,16 +68,32 @@ test('the defs hold a pattern for every ground, and no ug-white filter', () => {
   assert.equal(svg.all().some((n) => n.attrs.id === 'ug-white'), false);
 });
 
-test('tiles blend with a soft inner shadow on each side that meets another ground', () => {
+test('each tile is blended into the surfaces round it as tileBlend says, between its ground and its feature', () => {
   const s = sampleBoard();
   const svg = draw(s);
   const grounds = groundGrid(s);
+  let drawn = 0;
   for (let y = 0; y < s.height; y += 1) {
     for (let x = 0; x < s.width; x += 1) {
-      const sides = tile(svg, x, y).findAll('data-edge').map((n) => n.attrs['data-edge']);
-      assert.deepEqual(sides, softEdges(grounds, x, y), `${x},${y}`);
+      const g = tile(svg, x, y);
+      const blend = tileBlend(grounds, x, y);
+      const attr = (/** @type {string} */ name) => g.findAll(name).map((n) => n.attrs[name]);
+      assert.deepEqual(attr('data-edge'), blend.shade, `${x},${y} shade`);
+      assert.deepEqual(attr('data-spill'), [...blend.spills.map((p) => p.side), ...blend.fades.map((p) => p.corner)], `${x},${y} spills`);
+      // A rounded-off corner is one shape, and a second over it where
+      // this tile's own surface is the higher one.
+      assert.deepEqual(attr('data-cut'), blend.cuts.flatMap((c) => (c.beach === null ? [c.corner] : [c.corner, c.corner])), `${x},${y} cuts`);
+      for (const cut of g.findAll('data-cut').filter((n) => n.attrs.opacity === undefined)) {
+        const want = blend.cuts.find((c) => c.corner === cut.attrs['data-cut']);
+        assert.equal(cut.attrs.fill, groundFill(SURFACE_GROUND[want.fill]), 'filled with the surface beside it');
+      }
+      const kids = g.children.map((c) => c.attrs['data-ground'] ?? c.attrs['data-feature'] ?? 'blend');
+      assert.equal(kids[0], grounds[y][x], 'the ground first');
+      assert.equal(g.children[g.children.length - 1].attrs['data-feature'] !== undefined, true, 'the feature last');
+      drawn += g.children.length - 2;
     }
   }
+  assert.ok(drawn > 0, 'the sample board has water, stubble and paving to blend');
 });
 
 test('the grid is a faint overlay shown only during move or target selection', () => {

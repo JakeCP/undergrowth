@@ -8,11 +8,12 @@
 /** @typedef {import('./types.js').Deployment} Deployment */
 /** @typedef {import('./types.js').Move} Move */
 /** @typedef {import('./types.js').Reward} Reward */
+/** @typedef {import('./types.js').Rules} Rules */
 
 import { LEGEND, isHabitat } from './terrain.js';
 import { eq, key, manhattan } from './grid.js';
 import { BAND_TYPES } from './units.js';
-import { bandById, canPass, landsClear, stepBand, growthAlong } from './band.js';
+import { bandById, canPass, landsClear, stepBand, growthAlong, bandAfterStep } from './band.js';
 import { findAction, actionTargets, resolveAction } from './actions.js';
 import { runBotPhase, replan } from './bots.js';
 
@@ -100,6 +101,25 @@ export function countHabitats(state) {
   return count;
 }
 
+/** The ids of the trial rules a level may switch on: the keys of `Rules`. */
+export const TRIAL_RULE_IDS = Object.freeze(['woodOnlyGrowth', 'snakeBodies']);
+
+/**
+ * A copy of the level with each rule in `rules` that is `true` switched on
+ * as well as the level's own. It never turns off a rule the level has.
+ * @param {Level} level
+ * @param {Rules} rules
+ * @returns {Level}
+ */
+export function withRules(level, rules) {
+  /** @type {Rules} */
+  const merged = { ...(level.rules ?? {}) };
+  for (const [id, on] of Object.entries(rules)) {
+    if (on === true) merged[/** @type {keyof Rules} */ (id)] = true;
+  }
+  return { ...level, rules: merged };
+}
+
 /**
  * @param {Level} level
  * @param {Deployment[]} deployments
@@ -114,6 +134,8 @@ export function createBattle(level, deployments, progress) {
     throw new Error(`too many bands: ${deployments.length} exceeds maxBands ${level.maxBands}`);
   }
   const { width, height, tiles, deployTiles, objectives, pickups } = parseGrid(level.grid);
+  /** @type {Rules} */
+  const rules = { ...(level.rules ?? {}) };
 
   /** @type {Set<string>} */
   const seen = new Set();
@@ -150,7 +172,7 @@ export function createBattle(level, deployments, progress) {
       acted: false,
       trapped: false,
       plan: null,
-      fresh: progress.bands[deployment.type].maxLen > 1,
+      fresh: rules.woodOnlyGrowth !== true && progress.bands[deployment.type].maxLen > 1,
     });
   }
   for (const placement of level.trapped) {
@@ -199,6 +221,7 @@ export function createBattle(level, deployments, progress) {
     outcome: null,
     lostReason: null,
     events: [],
+    rules,
   };
   state.forestStart = countForest(state);
   state.habitatStart = countHabitats(state);
@@ -240,15 +263,19 @@ function applyBandMove(state, bandId, path) {
   }
 
   // The same rule as canWalk, checked step by step for a clear message.
+  // Under snakeBodies each step is judged against the body as it then stands.
+  const follow = state.rules?.snakeBodies === true;
+  let walker = band;
   /** @type {Pos} */
   let prev = band.cells[0];
   for (const step of path) {
     if (manhattan(prev, step) !== 1) {
       throw new Error(`move step to ${step[0]},${step[1]} is not adjacent to ${prev[0]},${prev[1]}`);
     }
-    if (!canPass(state, band, step)) {
+    if (!canPass(state, walker, step)) {
       throw new Error(`band "${bandId}" cannot step to ${step[0]},${step[1]}`);
     }
+    if (follow) walker = bandAfterStep(state, walker, step);
     prev = step;
   }
   // A band that passes through others must still end the move on free ground.

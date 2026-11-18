@@ -9,5 +9,5 @@
     "moduleResolution": "bundler",
     "lib": ["es2022", "dom"]
   },
-  "include": ["js", "data"]
+  "include": ["js", "data", "lab"]
 }

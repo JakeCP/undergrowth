@@ -1,5 +1,6 @@
 /** @typedef {import('./types.js').Pos} Pos */
 /** @typedef {import('./types.js').Dir} Dir */
+/** @typedef {import('./types.js').ShotDir} ShotDir */
 
 /** @type {Dir[]} */
 export const DIR_ORDER = ['N', 'E', 'S', 'W'];
@@ -10,6 +11,19 @@ export const DIRS = {
   E: [1, 0],
   S: [0, 1],
   W: [-1, 0],
+};
+
+/** The order shots try their directions: the four, then the diagonals.
+ *  @type {ShotDir[]} */
+export const SHOT_DIR_ORDER = ['N', 'E', 'S', 'W', 'NE', 'SE', 'SW', 'NW'];
+
+/** @type {Record<ShotDir, Pos>} */
+export const SHOT_DIRS = {
+  ...DIRS,
+  NE: [1, -1],
+  SE: [1, 1],
+  SW: [-1, 1],
+  NW: [-1, -1],
 };
 
 /**
@@ -66,6 +80,22 @@ export function dirBetween(from, to) {
   if (from[0] === to[0]) return to[1] > from[1] ? 'S' : 'N';
   if (from[1] === to[1]) return to[0] > from[0] ? 'E' : 'W';
   return null;
+}
+
+/**
+ * The shot direction from one tile to another along a row, a column or an
+ * exact diagonal; null otherwise.
+ * @param {Pos} from
+ * @param {Pos} to
+ * @returns {ShotDir|null}
+ */
+export function shotDirBetween(from, to) {
+  const straight = dirBetween(from, to);
+  if (straight !== null) return straight;
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  if (dx === 0 || Math.abs(dx) !== Math.abs(dy)) return null;
+  return /** @type {ShotDir} */ ((dy < 0 ? 'N' : 'S') + (dx > 0 ? 'E' : 'W'));
 }
 
 /**

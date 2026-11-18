@@ -336,13 +336,13 @@ body {
       justify-content: flex-start;
     }
 
-    .battle-log__entry:not(:last-child),
+    .battle-log__entry:not(:first-child),
     .battle-log.has-note .battle-log__list {
       display: block;
     }
 
-    .battle-log__entry:nth-last-child(2) { opacity: 0.6; }
-    .battle-log__entry:nth-last-child(n+3) { display: none; }
+    .battle-log__entry:nth-child(2) { opacity: 0.6; }
+    .battle-log__entry:nth-child(n+3) { display: none; }
     .battle-goal {
       margin: 10px 0 8px;
     }
@@ -388,7 +388,7 @@ body {
   list-style: none;
 }
 
-.battle-log__entry:not(:last-child),
+.battle-log__entry:not(:first-child),
 .battle-log.has-note .battle-log__list {
   display: none;
 }
@@ -936,15 +936,18 @@ button {
 
   /* The log, just above the buttons, in the room the card leaves: the
      newest line first and clear, the older ones fading under it, in a
-     box no taller than about six lines that cuts the oldest off, so it
-     never pushes the card or the buttons around. The passing note (what a tap does, what a hovered
-     target would do) sits at its foot, over the buttons. */
+     box no taller than that room (and never more than about nine
+     lines), so it never pushes the card or the buttons around. The
+     whole battle is kept: the list scrolls back through it, and its
+     foot fades out to say there is more below. The passing note (what a
+     tap does, what a hovered target would do) sits at its foot, over
+     the buttons. */
   .battle-log {
     display: flex;
     flex-direction: column;
     align-self: end;
     height: auto;
-    max-height: 9.6em;
+    max-height: min(100%, 13.5em);
     min-height: 0;
     margin: 14px 0 0;
     padding-top: 10px;
@@ -959,29 +962,39 @@ button {
   }
 
   .battle-log__list {
-    display: flex;
+    display: block;
     flex: 0 1 auto;
-    flex-direction: column-reverse;
-    justify-content: flex-end;
     min-height: 0;
-    overflow: hidden;
+    padding: 0 8px 16px 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(244, 239, 230, 0.28) transparent;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
   }
 
   .battle-log.has-note .battle-log__list {
-    display: flex;
+    display: block;
   }
 
   .battle-log__entry,
-  .battle-log__entry:not(:last-child) {
+  .battle-log__entry:not(:first-child) {
     display: block;
-    flex: none;
     margin-bottom: 6px;
+    transition: opacity 140ms ease;
   }
 
-  .battle-log__entry:nth-last-child(2) { opacity: 0.7; }
-  .battle-log__entry:nth-last-child(3) { opacity: 0.5; }
-  .battle-log__entry:nth-last-child(4) { opacity: 0.36; }
-  .battle-log__entry:nth-last-child(n+5) { opacity: 0.25; }
+  .battle-log__entry:nth-child(2) { opacity: 0.72; }
+  .battle-log__entry:nth-child(3) { opacity: 0.56; }
+  .battle-log__entry:nth-child(n+4) { opacity: 0.44; }
+
+  /* Reading back through it, every line is clear. */
+  .battle-log__list:hover .battle-log__entry,
+  .battle-log__list:focus-within .battle-log__entry {
+    opacity: 0.95;
+  }
 
   .battle-log__note {
     flex: none;
@@ -1329,7 +1342,7 @@ button {
       max-height: 92px;
     }
 
-    .battle.has-strip .battle-log__entry:nth-last-child(2) {
+    .battle.has-strip .battle-log__entry:nth-child(2) {
       display: block;
       opacity: 0.6;
     }

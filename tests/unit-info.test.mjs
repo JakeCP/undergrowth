@@ -35,6 +35,8 @@ test('every band type says what it is for in one line', () => {
     assert.equal(line, ROLES[id]);
   }
   assert.equal(roleLine('nobody'), '');
+  // The saw and the Hunter both cut dams, and their lines say so.
+  for (const id of ['saw', 'hunter']) assert.match(roleLine(id), /cuts dams/, id);
 });
 
 test('where an action reaches, from its range', () => {
@@ -95,6 +97,19 @@ test('the bots\' actions read too, for any later use', () => {
   assert.equal(actionSentence(BAND_TYPES.harvester.actions[0]), 'Mows a forest tile next to it to stubble, or deals 1 damage to a band there.');
   assert.equal(actionSentence(BAND_TYPES.saw.actions[0]), 'Deals 2 damage to a band next to it, or cuts a dam there.');
   assert.equal(actionSentence(BAND_TYPES.planter.actions[0]), 'Paves open ground or stubble next to it, or deals 1 damage to a band there.');
+  assert.equal(
+    actionSentence(BAND_TYPES.tower.actions[0]),
+    'Shoots a band up to 6 tiles away in a straight line for 2 damage. Trees, stones, dens and bodies in the way stop the shot.',
+  );
+  assert.equal(
+    actionSentence(BAND_TYPES.beacon.actions[0]),
+    'Shoots a band up to 3 tiles away in a straight line or a diagonal for 2 damage. Trees, stones, dens and bodies in the way stop the shot.',
+  );
+  assert.equal(
+    actionSentence(BAND_TYPES.crane.actions[0]),
+    'Swings at a band 2 tiles away in a straight line for 3 damage. Trees, stones, dens and bodies in the way stop the shot.',
+  );
+  assert.equal(actionSentence(BAND_TYPES.coil.actions[0]), 'Deals 2 damage to a band next to it. It never harms dens, dams or ground.');
 });
 
 test('movement traits: flying, and slipping through other bands', () => {

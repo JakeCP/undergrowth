@@ -12,6 +12,8 @@ import { renderDeploy } from './ui/deploy-view.js';
 import { renderShop } from './ui/shop-view.js';
 import { renderResult } from './ui/result-view.js';
 import { silhouettes } from './ui/silhouettes.js';
+import { fieldBake } from './ui/field-bake.js';
+import { groundPattern, SURFACE_GROUND } from './ui/patterns.js';
 import { createSound } from './ui/sound.js';
 import { renderTitle } from './ui/title-view.js';
 import { titleState } from './ui/title-state.js';
@@ -20,7 +22,7 @@ import { BAND_TYPES } from './engine/units.js';
 import { runScenes } from './story/run.js';
 import { SCENES } from '../data/story/index.js';
 import { playScene } from './ui/scene-view.js';
-import { watchInput } from './ui/keys.js';
+import { watchInput, takeKeys } from './ui/keys.js';
 import { applyKit, PRESSABLE } from './ui/ui-kit.js';
 
 // The painted interface kit: every button, panel and banner is drawn
@@ -265,6 +267,79 @@ function showDeploy(level) {
 // a live SVG filter. Without a canvas the board shows the plain glyphs.
 silhouettes.prepare(Object.values(BAND_TYPES).map((def) => def.glyph));
 
-showTitle();
+// Bake the grass field (the plain grass and its soft patches) into one
+// picture, so the board fills its grass from a single image instead of
+// replaying every masked patch on each repaint (js/ui/field-bake.js).
+const grassField = groundPattern(SURFACE_GROUND.grass);
+if (grassField.layers.length > 0) fieldBake.prepare(grassField);
+
+// The test ground (lab/): a developer's screen for trying any level
+// under trial rules, opened by ending the address with #lab. The public
+// build has no lab/ (scripts/export-public.sh) and it is never precached
+// (sw.js), so it is loaded only when asked for. The paths are held here
+// and handed to import() as variables, not written inside import(...),
+// so tsc does not try to resolve them in a copy that has no lab/.
+const LAB_HASH = '#lab';
+const LAB_MODULE = '../lab/lab.js';
+const LAB_LEVELS_MODULE = '../lab/levels/index.js';
+
+/** True from the moment the test ground is asked for until it is left. */
+let labShowing = false;
+
+/**
+ * Opens the test ground over whatever is on screen. If it cannot be
+ * loaded (the public build), the title shows instead.
+ * @returns {void}
+ */
+function showLab() {
+  labShowing = true;
+  // Nothing of the screen it replaces carries on under it: not the title
+  // theme, and not that screen's keys (the list takes none of its own).
+  music.stop();
+  takeKeys(() => {});
+  Promise.all([import(LAB_MODULE), import(LAB_LEVELS_MODULE)])
+    .then(([lab, labLevels]) => {
+      // Left again before it had loaded.
+      if (!labShowing) return;
+      lab.openLab(app, {
+        levels: LEVELS,
+        labLevels: labLevels.LAB_LEVELS,
+        settings: () => ({ botSpeed: progress.botSpeed ?? 'normal', soundOn: progress.soundOn === true }),
+        sound,
+        // The battle's settings control, as in showDeploy: the only thing
+        // the test ground ever saves.
+        onSettings: (/** @type {import('./campaign/progress.js').Settings} */ next) => {
+          progress = withSettings(progress, next);
+          saveProgress(progress);
+          sound.setOn(progress.soundOn === true);
+        },
+        onExit: () => {
+          history.replaceState(null, '', location.pathname + location.search);
+          leaveLab();
+        },
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      if (labShowing) leaveLab();
+    });
+}
+
+/** Leaves the test ground for the title, as on a cold start. */
+function leaveLab() {
+  labShowing = false;
+  showTitle();
+}
+
+window.addEventListener('hashchange', () => {
+  if (location.hash === LAB_HASH) {
+    if (!labShowing) showLab();
+  } else if (labShowing) {
+    leaveLab();
+  }
+});
+
+if (location.hash === LAB_HASH) showLab();
+else showTitle();
 
 try { navigator.serviceWorker?.register('sw.js')?.catch(() => {}); } catch {}

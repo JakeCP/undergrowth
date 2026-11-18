@@ -197,16 +197,9 @@ test('deterministic', () => {
 
 // --- Reach and engagement ---
 
-test('reach is speed + 1 and lives on the bot type; only the saw is always engaged', () => {
-  assert.equal(BAND_TYPES.harvester.reach, 3);
-  assert.equal(BAND_TYPES.saw.reach, 4);
-  assert.equal(BAND_TYPES.planter.reach, 3);
-  for (const id of ['harvester', 'saw', 'planter']) {
-    assert.equal(BAND_TYPES[id].reach, BAND_TYPES[id].speed + 1, id);
-  }
-  assert.equal(BAND_TYPES.saw.alwaysEngaged, true);
-  assert.notEqual(BAND_TYPES.harvester.alwaysEngaged, true);
-  assert.notEqual(BAND_TYPES.planter.alwaysEngaged, true);
+test('reach is speed + 1 for the bots that walk up and strike; the saw and the hunter are always engaged', () => {
+  for (const id of ['harvester', 'saw', 'planter', 'hunter', 'coil']) assert.equal(BAND_TYPES[id].reach, BAND_TYPES[id].speed + 1, id);
+  assert.deepEqual(Object.keys(BAND_TYPES).filter((id) => BAND_TYPES[id].alwaysEngaged === true).sort(), ['hunter', 'saw']);
 });
 
 test('a bot is engaged when it can walk up to a band and strike it this turn', () => {

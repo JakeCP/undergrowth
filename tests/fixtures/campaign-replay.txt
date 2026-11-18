@@ -1,0 +1,1489 @@
+=== o01
+o01 solution 1 of 2: fox@0,7 hedgehog@1,7
+turn 1 (start)
+   01234567
+ 0 TTTTT..K
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 TT..TT0m
+ 5 TT..TT.m
+ 6 ........
+ 7 FN......
+  fox (1/2)
+  hedgehog (1/2)
+  harvester-0 (3) stays, strikes 5,4
+turn 2
+   01234567
+ 0 TTTTT..K
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 FT..T_0m
+ 5 fN..TT.m
+ 6 .n......
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 5,4, strikes 5,5
+turn 3
+   01234567
+ 0 TTTTT..K
+ 1 FTTTT...
+ 2 fT......
+ 3 TN......
+ 4 Tn..T0mm
+ 5 TT..T_._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) stays, strikes 4,4
+turn 4
+   01234567
+ 0 TfFTT..K
+ 1 TNTTT...
+ 2 Tn......
+ 3 TT......
+ 4 TT.._0mm
+ 5 TT..T_._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 4,4, strikes 4,5
+turn 5
+   01234567
+ 0 TTTTfF.K
+ 1 TTnNT...
+ 2 TT......
+ 3 TT......
+ 4 TT..0mm_
+ 5 TT..__._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 4,2, strikes 4,1
+   01234567
+ 0 TTTTT.fF
+ 1 TTnNT...
+ 2 TT......
+ 3 TT......
+ 4 TT..0mm_
+ 5 TT..__._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) stays
+-> won on turn 5 of 5, 0/0 dens, 18/22 forest
+o01 solution 2 of 2: fox@0,7 hedgehog@1,7
+turn 1 (start)
+   01234567
+ 0 TTTTT..K
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 TT..TT0m
+ 5 TT..TT.m
+ 6 ........
+ 7 FN......
+  fox (1/2)
+  hedgehog (1/2)
+  harvester-0 (3) stays, strikes 5,4
+turn 2
+   01234567
+ 0 TTTTT..K
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 FT..T_0m
+ 5 fT..TT.m
+ 6 .nN.....
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 5,4, strikes 5,5
+turn 3
+   01234567
+ 0 TTTTT..K
+ 1 FTTTT...
+ 2 fT......
+ 3 TT......
+ 4 TT..T0mm
+ 5 TT..T_._
+ 6 ...nN...
+ 7 ........
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 5,6, strikes 4,6
+turn 4
+   01234567
+ 0 TfFTT..K
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 TT..T0__
+ 5 TT..TN._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (1/2)
+  harvester-0 (1) stays, strikes 5,5
+   01234567
+ 0 TfFTT...
+ 1 TTTTT...
+ 2 TT......
+ 3 TT......
+ 4 TT..T___
+ 5 TT..TN._
+ 6 ........
+ 7 ........
+  fox (2/2)
+  hedgehog (1/2)
+-> won on turn 4 of 4, 0/0 dens, 20/22 forest
+=== o02
+o02 solution 1 of 2: fox@3,7 hedgehog@4,7
+turn 1 (start)
+   01234567
+ 0 TT......
+ 1 TT...0mm
+ 2 TTTTTTTT
+ 3 T.....T.
+ 4 .....H..
+ 5 ........
+ 6 T......T
+ 7 T..FN..T
+  fox (1/2)
+  hedgehog (1/2)
+  harvester-0 (3) stays, strikes 5,2
+turn 2
+   01234567
+ 0 TT......
+ 1 TT...0mm
+ 2 TTTTT_TT
+ 3 T.....T.
+ 4 ...F.H..
+ 5 ...fN...
+ 6 T...n..T
+ 7 T......T
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 5,3, strikes 5,4
+turn 3
+   01234567
+ 0 TT......
+ 1 TT...___
+ 2 TTTTTmTT
+ 3 T..fF0T.
+ 4 .....N..
+ 5 ........
+ 6 T......T
+ 7 T......T
+  fox (2/2)
+  hedgehog (1/2)
+  harvester-0 (2) stays, strikes 5,4
+   01234567
+ 0 TT......
+ 1 TT...___
+ 2 TTTTT_TT
+ 3 T..fF.T.
+ 4 .....N..
+ 5 ........
+ 6 T......T
+ 7 T......T
+  fox (2/2)
+  hedgehog (1/2)
+-> won on turn 3 of 3, 1/1 dens, 17/18 forest
+o02 solution 2 of 2: fox@3,7 hedgehog@4,7
+turn 1 (start)
+   01234567
+ 0 TT......
+ 1 TT...0mm
+ 2 TTTTTTTT
+ 3 T.....T.
+ 4 .....H..
+ 5 ........
+ 6 T......T
+ 7 T..FN..T
+  fox (1/2)
+  hedgehog (1/2)
+  harvester-0 (3) stays, strikes 5,2
+turn 2
+   01234567
+ 0 TT......
+ 1 TT...0mm
+ 2 TTTTT_TT
+ 3 T.....T.
+ 4 ...F.H..
+ 5 ...fN...
+ 6 T...n..T
+ 7 T......T
+  fox (2/2)
+  hedgehog (2/2)
+  harvester-0 (3) walks to 5,3, strikes 5,4
+turn 3
+   01234567
+ 0 TT......
+ 1 TT.F0mm_
+ 2 TTTTT_TT
+ 3 T...N.T.
+ 4 ....nH..
+ 5 ........
+ 6 T......T
+ 7 T......T
+  fox (1/2)
+  hedgehog (2/2)
+  harvester-0 (3) stays, strikes 3,1
+turn 4
+   01234567
+ 0 TT......
+ 1 TT.F.___
+ 2 TTTTN_TT
+ 3 T.....T.
+ 4 .....H..
+ 5 ........
+ 6 T......T
+ 7 T......T
+  fox (1/2)
+  hedgehog (1/2)
+   01234567
+ 0 TT......
+ 1 TT.F.___
+ 2 TTTTN_TT
+ 3 T.....T.
+ 4 .....H..
+ 5 ........
+ 6 T......T
+ 7 T......T
+  fox (1/2)
+  hedgehog (1/2)
+-> won on turn 4 of 4, 1/1 dens, 17/18 forest
+=== l01
+l01 solution 1 of 3: ants@0,7
+turn 1 (start)
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.0mm
+ 5 ...TTTTT
+ 6 .TT..TST
+ 7 A....THT
+  ants (1/4)
+  harvester-0 (3) stays, strikes 5,5
+turn 2
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.0mm
+ 5 ...TT_TT
+ 6 aaA..TST
+ 7 a....THT
+  ants (4/4)
+  harvester-0 (3) walks to 5,5, strikes 5,6
+turn 3
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TT0TT
+ 6 .TTaaAST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (3) stays, strikes 5,6
+turn 4
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TA0TT
+ 6 .TT.aaST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (3) stays, strikes 5,6
+turn 5
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ..AS.mm.
+ 5 ..aaT0TT
+ 6 .TT..TST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (3) stays, strikes 5,6
+turn 6
+   01234567
+ 0 TT....TP
+ 1 T*A...TT
+ 2 ..a...T.
+ 3 ..aSSSSS
+ 4 ...S.mm.
+ 5 ...TT0TT
+ 6 .TT.._ST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (3) walks to 5,6, strikes 5,7
+turn 7
+   01234567
+ 0 TTaaA.TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.m..
+ 5 ...TTmTT
+ 6 .TT..0ST
+ 7 ....._HT
+  ants (3/4)
+  harvester-0 (3) walks to 5,7, strikes 6,7
+   01234567
+ 0 TT..aaaA
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.m..
+ 5 ...TTmTT
+ 6 .TT..0ST
+ 7 ....._HT
+  ants (4/4)
+  harvester-0 (3) stays
+-> won on turn 7 of 7, 1/1 dens, 15/18 forest
+l01 solution 2 of 3: ants@0,7 badger@1,7
+turn 1 (start)
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.0mm
+ 5 ...TTTTT
+ 6 .TT..TST
+ 7 AG...THT
+  ants (1/4)
+  badger (1/3)
+  harvester-0 (3) stays, strikes 5,5
+turn 2
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 A..S.0mm
+ 5 a..TT_TT
+ 6 agG..TST
+ 7 ag...THT
+  ants (4/4)
+  badger (3/3)
+  harvester-0 (3) walks to 5,5, strikes 5,6
+turn 3
+   01234567
+ 0 TT....TP
+ 1 A*....TT
+ 2 a.....T.
+ 3 a..SSSSS
+ 4 a..S.mm.
+ 5 ...TT0TT
+ 6 .TggG_ST
+ 7 .....THT
+  ants (4/4)
+  badger (3/3)
+  harvester-0 (3) walks to 5,6, strikes 4,6
+turn 4
+   01234567
+ 0 TT....TP
+ 1 aaaA..TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TG0TT
+ 6 .TT.g_ST
+ 7 .....THT
+  ants (4/4)
+  badger (2/3)
+  harvester-0 (3) stays, strikes 4,5
+turn 5
+   01234567
+ 0 TT....TP
+ 1 T..aaaAT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TG0TT
+ 6 .TT.._ST
+ 7 .....THT
+  ants (4/4)
+  badger (1/3)
+  harvester-0 (3) stays, strikes 4,5
+   01234567
+ 0 TT....aA
+ 1 T....aaT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TG0TT
+ 6 .TT.._ST
+ 7 .....THT
+  ants (4/4)
+  badger (1/3)
+  harvester-0 (3) stays
+-> won on turn 5 of 5, 1/1 dens, 16/18 forest
+l01 solution 3 of 3: ants@0,7
+turn 1 (start)
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.0mm
+ 5 ...TTTTT
+ 6 .TT..TST
+ 7 A....THT
+  ants (1/4)
+  harvester-0 (3) stays, strikes 5,5
+turn 2
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.0mm
+ 5 ...TT_TT
+ 6 aaA..TST
+ 7 a....THT
+  ants (4/4)
+  harvester-0 (3) walks to 5,5, strikes 5,6
+turn 3
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.mm.
+ 5 ...TT0TT
+ 6 .aaaA_ST
+ 7 .....THT
+  ants (4/4)
+  harvester-0 (3) walks to 5,6, strikes 4,6
+turn 4
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...S.m..
+ 5 ...TT0TT
+ 6 .TTaaAST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (2) stays, strikes 5,6
+turn 5
+   01234567
+ 0 TT....TP
+ 1 T*....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...SA...
+ 5 ...Ta0TT
+ 6 .TT.a_ST
+ 7 .....THT
+  ants (3/4)
+  harvester-0 (1) stays, strikes 4,5
+   01234567
+ 0 TT....T.
+ 1 T.....TT
+ 2 ......T.
+ 3 ...SSSSS
+ 4 ...SaA..
+ 5 ...Ta_TT
+ 6 .TT.._ST
+ 7 .....THT
+  ants (3/4)
+-> won on turn 5 of 5, 1/1 dens, 16/18 forest
+=== l02
+l02 solution 1 of 2: ants@6,4 beaver@7,4
+turn 1 (start)
+   01234567
+ 0 K.T....K
+ 1 w..TH..~
+ 2 1.....~~
+ 3 ~~~~~~~.
+ 4 ......AV
+ 5 ..*.....
+ 6 TT.0mm..
+ 7 HTT....T
+  ants (1/4)
+  beaver (1/3)
+  harvester-0 (3) walks to 2,6, strikes 2,7
+  saw-1 (2) walks to 3,2
+turn 2
+   01234567
+ 0 K.T....K
+ 1 ...TH..~
+ 2 ..w1..~=
+ 3 ~~~~~~~V
+ 4 .......v
+ 5 ..*...a.
+ 6 TT.mm0a.
+ 7 HTT...AT
+  ants (3/4)
+  beaver (2/3)
+  harvester-0 (3) stays, strikes 6,6
+  saw-1 (2) walks to 5,2
+turn 3
+   01234567
+ 0 K.T....K
+ 1 ...Th1.=
+ 2 .....w~V
+ 3 ~~~~~~~v
+ 4 .......v
+ 5 ..*.....
+ 6 TT.mm0a.
+ 7 HTT...aA
+  ants (3/4)
+  beaver (3/3)
+  harvester-0 (3) stays, strikes 6,6
+  saw-1 (2) walks to 7,1, strikes 7,2
+turn 4
+   01234567
+ 0 K.T....V
+ 1 ...Thw1=
+ 2 ......~=
+ 3 ~~~~~~~.
+ 4 .......A
+ 5 ..*....a
+ 6 TT..mm0.
+ 7 HTT....T
+  ants (2/4)
+  beaver (1/3)
+  harvester-0 (3) walks to 6,5, strikes 7,5
+  saw-1 (2) walks to 6,0, strikes 7,0
+turn 5
+   01234567
+ 0 K.T.....
+ 1 ...Th.1A
+ 2 ......~a
+ 3 ~~~~~~~.
+ 4 ........
+ 5 ..*.....
+ 6 TT..0mm.
+ 7 HTT....T
+  ants (2/4)
+  harvester-0 (3) walks to 2,6, strikes 2,7
+  saw-1 (1) stays, strikes 7,1
+turn 6
+   01234567
+ 0 K.T...Aa
+ 1 ...Th..=
+ 2 ......~=
+ 3 ~~~~~~~.
+ 4 ........
+ 5 ..*.....
+ 6 TT0mm...
+ 7 HT_....T
+  ants (2/4)
+  harvester-0 (3) walks to 2,7, strikes 1,7
+turn 7
+   01234567
+ 0 K.TAa...
+ 1 ...Th..=
+ 2 ......~=
+ 3 ~~~~~~~.
+ 4 ........
+ 5 ..*.....
+ 6 TTmm....
+ 7 H_0....T
+  ants (2/4)
+  harvester-0 (3) walks to 1,7, strikes 0,7
+   01234567
+ 0 Aaa.....
+ 1 ...Th..=
+ 2 ......~=
+ 3 ~~~~~~~.
+ 4 ........
+ 5 ..*.....
+ 6 TTmm....
+ 7 H_0....T
+  ants (3/4)
+  harvester-0 (3) stays
+-> won on turn 7 of 7, 2/2 dens, 5/7 forest
+l02 solution 2 of 2: beaver@6,4 ants@7,4 badger@5,4
+turn 1 (start)
+   01234567
+ 0 K.T....K
+ 1 w..TH..~
+ 2 1.....~~
+ 3 ~~~~~~~.
+ 4 .....GVA
+ 5 ..*.....
+ 6 TT.0mm..
+ 7 HTT....T
+  beaver (1/3)
+  ants (1/4)
+  badger (1/3)
+  harvester-0 (3) walks to 2,6, strikes 2,7
+  saw-1 (2) walks to 3,2
+turn 2
+   01234567
+ 0 K.T....K
+ 1 ...TH..~
+ 2 ..w1..~~
+ 3 ~~~~~~Aa
+ 4 ...Gg.Va
+ 5 ..*0....
+ 6 TT.mm...
+ 7 HTT....T
+  beaver (1/3)
+  ants (3/4)
+  badger (2/3)
+  harvester-0 (3) stays, strikes 3,4
+  saw-1 (2) stays
+turn 3
+   01234567
+ 0 K.T....K
+ 1 ...THA.~
+ 2 ...w1a~~
+ 3 ~~~~~==.
+ 4 .....Vv.
+ 5 ..G0....
+ 6 TT.mm...
+ 7 HTT....T
+  beaver (2/3)
+  ants (2/4)
+  badger (1/3)
+  harvester-0 (3) stays, strikes 2,5
+  saw-1 (2) stays, strikes 5,2
+turn 4
+   01234567
+ 0 K.T...aA
+ 1 ...TH..~
+ 2 ....w1~~
+ 3 ~~~~~V=.
+ 4 ........
+ 5 ..0m....
+ 6 TG.m....
+ 7 HTT....T
+  beaver (1/3)
+  ants (2/4)
+  badger (1/3)
+  harvester-0 (3) walks to 1,5, strikes 1,6
+  saw-1 (2) stays, strikes 5,3
+turn 5
+   01234567
+ 0 K.T.Aa..
+ 1 ...TH..~
+ 2 ....w1~~
+ 3 ~~~~~==.
+ 4 ........
+ 5 ..0m....
+ 6 TT.m....
+ 7 HTG....T
+  ants (2/4)
+  badger (1/3)
+  harvester-0 (3) walks to 2,6, strikes 2,7
+  saw-1 (2) walks to 5,1, strikes 5,0
+turn 6
+   01234567
+ 0 KAT.1w..
+ 1 ...TH..~
+ 2 ......~~
+ 3 ~~~~~==.
+ 4 ........
+ 5 ..0m....
+ 6 TT.m....
+ 7 HTT....T
+  ants (1/4)
+  harvester-0 (3) walks to 0,5, strikes 0,6
+  saw-1 (2) walks to 5,2, strikes 5,3
+   01234567
+ 0 A.T.1w..
+ 1 ...TH..~
+ 2 ......~~
+ 3 ~~~~~==.
+ 4 ........
+ 5 ..0m....
+ 6 TT.m....
+ 7 HTT....T
+  ants (1/4)
+  harvester-0 (3) stays
+  saw-1 (2) stays
+-> won on turn 6 of 6, 2/2 dens, 7/7 forest
+=== l03
+l03 solution 1 of 3: fox@2,3 ants@1,7
+turn 1 (start)
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ..F.....
+ 4 H.*.S.H.
+ 5 ...0S.S.
+ 6 ...wSSpp
+ 7 .A..SS#1
+  fox (1/2)
+  ants (1/4)
+  saw-0 (2) walks to 3,3, strikes 2,3
+  planter-1 (3) walks to 7,5, strikes 7,4
+turn 2
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ...fF...
+ 4 H.*.S.H#
+ 5 .aA0S.S1
+ 6 ....SS.p
+ 7 ....SS#p
+  fox (2/2)
+  ants (2/4)
+  saw-0 (1) stays, strikes 2,5
+  planter-1 (3) walks to 7,4, strikes 6,4
+turn 3
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ........
+ 4 H.aAS.F1
+ 5 ....S.Sp
+ 6 ....SS.p
+ 7 ....SS#P
+  fox (1/2)
+  ants (2/4)
+  planter-1 (3) stays, strikes 6,4
+turn 4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ...aA..F
+ 4 H...S.h1
+ 5 ....S.Sp
+ 6 ....SS.#
+ 7 ....SS#P
+  fox (1/2)
+  ants (2/4)
+  planter-1 (2) stays, strikes 6,4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 .......F
+ 4 H...SaA#
+ 5 ....S.S.
+ 6 ....SS.#
+ 7 ....SS#.
+  fox (1/2)
+  ants (2/4)
+-> won on turn 4 of 4, 2/2 dens, 12/12 forest
+l03 solution 2 of 3: ants@1,7 beaver@2,3
+turn 1 (start)
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ..V.....
+ 4 H.*.S.H.
+ 5 ...0S.S.
+ 6 ...wSSpp
+ 7 .A..SS#1
+  ants (1/4)
+  beaver (1/3)
+  saw-0 (2) walks to 3,3, strikes 2,3
+  planter-1 (3) walks to 7,5, strikes 7,4
+turn 2
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ..vvV...
+ 4 H.*.S.H#
+ 5 .aA0S.S1
+ 6 ....SS.p
+ 7 ....SS#p
+  ants (2/4)
+  beaver (3/3)
+  saw-0 (1) stays, strikes 2,5
+  planter-1 (3) walks to 7,4, strikes 6,4
+turn 3
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ....vvV.
+ 4 H.*.S.h1
+ 5 .aA.S.Sp
+ 6 ....SS.p
+ 7 ....SS#P
+  ants (2/4)
+  beaver (3/3)
+  planter-1 (3) stays, strikes 6,4
+turn 4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ......v.
+ 4 H.A.S.V1
+ 5 ..a.S.Sp
+ 6 ....SS.p
+ 7 ....SS#P
+  ants (2/4)
+  beaver (2/3)
+  planter-1 (3) stays, strikes 6,4
+turn 5
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ...aA...
+ 4 H...S.V1
+ 5 ....S.Sp
+ 6 ....SS.p
+ 7 ....SS#P
+  ants (2/4)
+  beaver (1/3)
+  planter-1 (3) stays, strikes 6,4
+turn 6
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ......aA
+ 4 H...S.h1
+ 5 ....S.Sp
+ 6 ....SS.#
+ 7 ....SS#P
+  ants (2/4)
+  planter-1 (2) stays, strikes 6,4
+turn 7
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ........
+ 4 H...S.A1
+ 5 ....S.S.
+ 6 ....SS.#
+ 7 ....SS#P
+  ants (1/4)
+  planter-1 (1) stays, strikes 6,4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ........
+ 4 H...S.A#
+ 5 ....S.S.
+ 6 ....SS.#
+ 7 ....SS#.
+  ants (1/4)
+-> won on turn 7 of 7, 2/2 dens, 12/12 forest
+l03 solution 3 of 3: ants@1,7 badger@2,3
+turn 1 (start)
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ..G.....
+ 4 H.*.S.H.
+ 5 ...0S.S.
+ 6 ...wSSpp
+ 7 .A..SS#1
+  ants (1/4)
+  badger (1/3)
+  saw-0 (2) walks to 3,3, strikes 2,3
+  planter-1 (3) walks to 7,5, strikes 7,4
+turn 2
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ..gG....
+ 4 H.*.S.H#
+ 5 .aA0S.S1
+ 6 ....SS.p
+ 7 ....SS#p
+  ants (2/4)
+  badger (2/3)
+  saw-0 (1) stays, strikes 2,5
+  planter-1 (3) walks to 7,4, strikes 6,4
+turn 3
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTT..
+ 2 ....S..T
+ 3 ...ggG..
+ 4 H.aAS.h1
+ 5 ....S.Sp
+ 6 ....SS.p
+ 7 ....SS#P
+  ants (2/4)
+  badger (3/3)
+  planter-1 (3) stays, strikes 6,4
+turn 4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TATT..
+ 2 ...aS..T
+ 3 ...a..g.
+ 4 H...S.G1
+ 5 ....S.Sp
+ 6 ....SS.#
+ 7 ....SS#P
+  ants (3/4)
+  badger (2/3)
+  planter-1 (2) stays, strikes 6,4
+turn 5
+   01234567
+ 0 TTT.TTTT
+ 1 ..TaaaA.
+ 2 ....S..T
+ 3 ......G.
+ 4 H...S.h1
+ 5 ....S.Sp
+ 6 ....SS.#
+ 7 ....SS#P
+  ants (4/4)
+  badger (1/3)
+  planter-1 (2) stays, strikes 6,4
+   01234567
+ 0 TTT.TTTT
+ 1 ..TTTTaa
+ 2 ....S..a
+ 3 .......A
+ 4 H...S.G#
+ 5 ....S.S.
+ 6 ....SS.#
+ 7 ....SS#.
+  ants (4/4)
+  badger (1/3)
+-> won on turn 5 of 5, 2/2 dens, 12/12 forest
+=== l04
+l04 solution 1 of 3: ants@0,6 fox@1,7
+turn 1 (start)
+   01234567
+ 0 TTTT.HTT
+ 1 ......Rr
+ 2 T..1.*..
+ 3 ...m.SSS
+ 4 ...mmm..
+ 5 ....2..0
+ 6 A......w
+ 7 .F...THT
+  ants (1/4)
+  fox (1/2)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 5,6
+  harvester-1 (3) walks to 4,1
+  harvester-2 (3) walks to 4,7, strikes 5,7
+turn 2
+   01234567
+ 0 TTTT.HTT
+ 1 ...m1.Rr
+ 2 T..m.*..
+ 3 .....SSS
+ 4 ....m...
+ 5 ....m...
+ 6 aA..20w.
+ 7 ....FTHT
+  ants (2/4)
+  fox (1/2)
+  trapped-bear (2/2) trapped
+  saw-0 (2) stays
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) stays, strikes 4,7
+turn 3
+   01234567
+ 0 TTTT1hTT
+ 1 ...mm.Rr
+ 2 T....*..
+ 3 .A...SSS
+ 4 .a......
+ 5 .a......
+ 6 ..2mm0w.
+ 7 .F...THT
+  ants (3/4)
+  fox (1/2)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 3,5
+  harvester-1 (3) stays, strikes 5,0
+  harvester-2 (3) stays
+turn 4
+   01234567
+ 0 TTTTmhTT
+ 1 ...1m.Rr
+ 2 T.aA.*..
+ 3 .....SSS
+ 4 ....0w..
+ 5 ........
+ 6 ..m2m...
+ 7 .....THT
+  ants (2/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 4,2, strikes 3,2
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) stays
+   01234567
+ 0 TTTTmhTT
+ 1 ...1mARr
+ 2 T....a..
+ 3 .....SSS
+ 4 ....0w..
+ 5 ........
+ 6 ..m2m...
+ 7 .....THT
+  ants (2/4)
+  trapped-bear (2/2)
+  saw-0 (2) stays
+  harvester-1 (3) stays
+  harvester-2 (3) stays
+-> won on turn 4 of 4, 2/2 dens, 9/9 forest
+l04 solution 2 of 3: ants@1,7
+turn 1 (start)
+   01234567
+ 0 TTTT.HTT
+ 1 ......Rr
+ 2 T..1.*..
+ 3 ...m.SSS
+ 4 ...mmm..
+ 5 ....2..0
+ 6 .......w
+ 7 .A...THT
+  ants (1/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 5,6
+  harvester-1 (3) walks to 4,1
+  harvester-2 (3) walks to 4,7, strikes 5,7
+turn 2
+   01234567
+ 0 TTTT.HTT
+ 1 ...m1.Rr
+ 2 T..m.*..
+ 3 .....SSS
+ 4 .A......
+ 5 .a2mm...
+ 6 .a...0w.
+ 7 .....THT
+  ants (3/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 2,6, strikes 1,6
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) walks to 2,4, strikes 1,4
+turn 3
+   01234567
+ 0 TTTT1hTT
+ 1 ...mm.Rr
+ 2 T....*..
+ 3 .A...SSS
+ 4 .a......
+ 5 ..2mm...
+ 6 ..0w....
+ 7 .....THT
+  ants (2/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 1,5, strikes 1,4
+  harvester-1 (3) stays, strikes 5,0
+  harvester-2 (3) stays
+turn 4
+   01234567
+ 0 TTTTmhTT
+ 1 ...1m.Rr
+ 2 T..A.*..
+ 3 .....SSS
+ 4 .0......
+ 5 .wmm2...
+ 6 ........
+ 7 .....THT
+  ants (1/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 2,2, strikes 3,2
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) stays
+   01234567
+ 0 TTTTmhTT
+ 1 ...1mARr
+ 2 T.......
+ 3 .....SSS
+ 4 .0......
+ 5 .wmm2...
+ 6 ........
+ 7 .....THT
+  ants (1/4)
+  trapped-bear (2/2)
+  saw-0 (2) stays
+  harvester-1 (3) stays
+  harvester-2 (3) stays
+-> won on turn 4 of 4, 2/2 dens, 9/9 forest
+l04 solution 3 of 3: ants@0,6 badger@1,7
+turn 1 (start)
+   01234567
+ 0 TTTT.HTT
+ 1 ......Rr
+ 2 T..1.*..
+ 3 ...m.SSS
+ 4 ...mmm..
+ 5 ....2..0
+ 6 A......w
+ 7 .G...THT
+  ants (1/4)
+  badger (1/3)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 5,6
+  harvester-1 (3) walks to 4,1
+  harvester-2 (3) walks to 4,7, strikes 5,7
+turn 2
+   01234567
+ 0 TTTT.HTT
+ 1 ...m1.Rr
+ 2 T..m.*..
+ 3 A....SSS
+ 4 a.......
+ 5 a...m...
+ 6 a...m0w.
+ 7 .gG.2_HT
+  ants (4/4)
+  badger (2/3)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 4,4
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) walks to 3,7, strikes 2,7
+turn 3
+   01234567
+ 0 TTTT.HTT
+ 1 ..1mm.Rr
+ 2 aaA..*..
+ 3 .....SSS
+ 4 ....0w..
+ 5 ..G.....
+ 6 ..g.m...
+ 7 ...2m_HT
+  ants (3/4)
+  badger (2/3)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 2,4, strikes 2,5
+  harvester-1 (3) stays, strikes 2,2
+  harvester-2 (3) walks to 5,7, strikes 6,7
+turn 4
+   01234567
+ 0 TTTT.HTT
+ 1 ..m1m.Rr
+ 2 T...aA..
+ 3 .....SSS
+ 4 ...0w...
+ 5 ........
+ 6 ........
+ 7 ...mm2hT
+  ants (2/4)
+  trapped-bear (2/2) trapped
+  saw-0 (2) walks to 3,2, strikes 4,2
+  harvester-1 (3) walks to 4,0, strikes 5,0
+  harvester-2 (3) stays, strikes 6,7
+   01234567
+ 0 TTTT.HTT
+ 1 ..m1mARr
+ 2 T....a..
+ 3 .....SSS
+ 4 ...0w...
+ 5 ........
+ 6 ........
+ 7 ...mm2hT
+  ants (2/4)
+  trapped-bear (2/2)
+  saw-0 (2) stays
+  harvester-1 (3) stays
+  harvester-2 (3) stays
+-> won on turn 4 of 4, 2/2 dens, 8/9 forest
+=== l05
+l05 solution 1 of 2: ants@1,6 badger@0,6
+turn 1 (start)
+   01234567
+ 0 TTT.STTH
+ 1 HTT.STTH
+ 2 TT0oS1TT
+ 3 .mm.Sm..
+ 4 ....Tmpp
+ 5 ....S.3.
+ 6 GA..S2..
+ 7 T...Sw..
+  ants (1/6)
+  badger (1/3)
+  harvester-0 (3) stays, strikes 2,1
+  harvester-1 (3) stays, strikes 5,1
+  saw-2 (2) stays
+  planter-3 (3) stays, strikes 7,5
+turn 2
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TTmoS1TT
+ 3 ..m.Sm..
+ 4 G.0.Tmpp
+ 5 gaA.S23#
+ 6 g...Sw..
+ 7 T...S...
+  ants (2/6)
+  badger (3/3)
+  harvester-0 (3) stays, strikes 2,5
+  harvester-1 (3) walks to 5,1, strikes 6,1
+  saw-2 (2) stays
+  planter-3 (3) walks to 6,3, strikes 7,3
+turn 3
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 GTmoSmTT
+ 3 g.m.Sm#.
+ 4 go0.A13p
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  ants (1/6)
+  badger (3/3)
+  harvester-0 (3) walks to 3,4, strikes 4,4
+  harvester-1 (3) walks to 5,2, strikes 6,2
+  saw-2 (2) stays
+  planter-3 (3) stays
+turn 4
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 gg.oS1_T
+ 3 .G..Sm#.
+ 4 .o.ATm3p
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  ants (1/6)
+  badger (3/3)
+  harvester-1 (3) walks to 5,1, strikes 6,1
+  saw-2 (2) walks to 5,4
+  planter-3 (3) walks to 6,2, strikes 6,1
+turn 5
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oSm_T
+ 3 .gg.Sm#.
+ 4 .oG.A13p
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  ants (1/6)
+  badger (3/3)
+  harvester-1 (3) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (3) stays
+turn 6
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS._T
+ 3 ...ASm#.
+ 4 .o.gG13p
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  ants (1/6)
+  badger (2/3)
+  harvester-1 (2) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (3) stays
+turn 7
+   01234567
+ 0 TTT.STTH
+ 1 HTA.S_TH
+ 2 TTaoS._T
+ 3 ....S.#.
+ 4 .o..G13p
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  ants (2/6)
+  badger (1/3)
+  harvester-1 (1) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (3) stays
+turn 8
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TTaoS._T
+ 3 ..A.S.#.
+ 4 .o..T23p
+ 5 ....Swp#
+ 6 ....S...
+ 7 T...S...
+  ants (2/6)
+  saw-2 (2) walks to 5,3
+  planter-3 (3) stays
+turn 9
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS._T
+ 3 ....S.#.
+ 4 .o..A23#
+ 5 ....S.p#
+ 6 ....S...
+ 7 T...S...
+  ants (1/6)
+  saw-2 (1) stays, strikes 4,4
+  planter-3 (2) stays
+turn 10
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS._T
+ 3 ....S##.
+ 4 .o..A3p#
+ 5 ....S..#
+ 6 ....S...
+ 7 T...S...
+  ants (1/6)
+  planter-3 (2) stays, strikes 5,5
+turn 11
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS._T
+ 3 ....S##.
+ 4 .o..A3##
+ 5 ....S#.#
+ 6 ....S...
+ 7 T...S...
+  ants (1/6)
+  planter-3 (1) stays
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS._T
+ 3 ....S##.
+ 4 .o..A.##
+ 5 ....S#.#
+ 6 ....S...
+ 7 T...S...
+  ants (1/6)
+-> won on turn 11 of 11, 3/3 dens, 13/15 forest
+l05 solution 2 of 2: fox@1,6 ants@0,5
+turn 1 (start)
+   01234567
+ 0 TTT.STTH
+ 1 HTT.STTH
+ 2 TT0oS1TT
+ 3 .mm.Sm..
+ 4 ....Tmpp
+ 5 A...S.3.
+ 6 .F..S2..
+ 7 T...Sw..
+  fox (1/2)
+  ants (1/6)
+  harvester-0 (3) stays, strikes 2,1
+  harvester-1 (3) stays, strikes 5,1
+  saw-2 (2) stays
+  planter-3 (3) stays, strikes 7,5
+turn 2
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS1TT
+ 3 A...Sm..
+ 4 aF..Tmpp
+ 5 af..S23#
+ 6 ....Sw..
+ 7 T...S...
+  fox (2/2)
+  ants (3/6)
+  harvester-1 (3) walks to 5,1, strikes 6,1
+  saw-2 (2) stays
+  planter-3 (3) walks to 6,3, strikes 7,3
+turn 3
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oSmTT
+ 3 aaA.Sm#.
+ 4 a...F13p
+ 5 a...S2p#
+ 6 ....Sw..
+ 7 T...S...
+  fox (1/2)
+  ants (5/6)
+  harvester-1 (3) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (3) stays
+turn 4
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS.TT
+ 3 .aaFSm#.
+ 4 ..aaA13#
+ 5 ....S2p#
+ 6 ....Sw..
+ 7 T...S...
+  fox (1/2)
+  ants (5/6)
+  harvester-1 (2) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (2) stays
+turn 5
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS.TT
+ 3 ..aFS.#.
+ 4 ..aaA13#
+ 5 ....S2##
+ 6 ....Sw..
+ 7 T...S...
+  fox (1/2)
+  ants (4/6)
+  harvester-1 (1) stays, strikes 4,4
+  saw-2 (2) stays
+  planter-3 (1) stays
+turn 6
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS.TT
+ 3 ...FS.#.
+ 4 ...aA2##
+ 5 ....Sw##
+ 6 ....S...
+ 7 T...S...
+  fox (1/2)
+  ants (2/6)
+  saw-2 (2) stays, strikes 4,4
+turn 7
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS.TT
+ 3 ....S.#.
+ 4 .F..T2##
+ 5 ....S.##
+ 6 ....S...
+ 7 T...S...
+  fox (1/2)
+  saw-2 (1) stays
+   01234567
+ 0 TTT.STTH
+ 1 HTT.S_TH
+ 2 TT.oS.TT
+ 3 ....S.#.
+ 4 ...fF.##
+ 5 ....S.##
+ 6 ....S...
+ 7 T...S...
+  fox (2/2)
+-> won on turn 7 of 7, 3/3 dens, 14/15 forest

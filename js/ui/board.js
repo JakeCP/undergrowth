@@ -26,8 +26,9 @@
 //   bands, the hover ghost, and the target badges on top.
 //
 // Every tile is a <g data-tile="x,y"> holding its ground (a rect filled
-// from js/ui/patterns.js, [data-ground]), its soft edges ([data-edge]) and
-// its code-drawn feature ([data-feature]). Every band is a
+// from js/ui/patterns.js, [data-ground]), its blend into the surfaces
+// round it (tileBlend in js/ui/look.js: [data-edge], [data-spill],
+// [data-cut]) and its feature ([data-feature]). Every band is a
 // <g data-band="id"> holding one [data-token="i"] per cell; token 0 is the
 // head ([data-head]). Nothing that the animation step may move carries a
 // transform attribute or a filter: everything is drawn in board
@@ -38,7 +39,8 @@ import { BAND_TYPES } from '../engine/units.js';
 import { el } from './svg.js';
 import { svgIcon } from './icons.js';
 import {
-  defineGroundPatterns, groundFill, hasTexture,
+  defineGroundPatterns, groundFill, hasTexture, SURFACE_GROUND,
+  BANK, STUBBLE,
   INK, CREAM, HAZARD, RUST, RUST_DARK, STEEL, ANIMAL, ANIMAL_DARK, FRAME,
   GRASS_LIGHT, GRASS_SHADE, FOREST_LIGHT, FOREST_SHADE,
   SOIL, SOIL_LIGHT, SOIL_DARK, STUBBLE_LIGHT, STUBBLE_SHADE,
@@ -48,7 +50,7 @@ import {
 } from './patterns.js';
 import { planDrawings, diffPlans, engagedBotIds } from './plans.js';
 import {
-  TILE, hash01, groundGrid, softEdges, showGrid, forestTrees, bandTokens, aimedHabitats, phaseDelay, tileMarks,
+  TILE, hash01, groundGrid, tileBlend, showGrid, forestTrees, bandTokens, aimedHabitats, phaseDelay, tileMarks,
 } from './look.js';
 import { silhouettes } from './silhouettes.js';
 import { pieceScene, drawTilePiece, drawDenMarks, drawObjectivePiece } from './board-pieces.js';
@@ -80,6 +82,20 @@ const READY = '#d6f77a';
 const BADGE_R = 8;
 /** Width of a soft tile edge. */
 const EDGE = 6;
+/** How far a surface's colour fades onto the lower surface beside it. */
+const SPILL = 9;
+/** How far along each side a rounded-off corner starts. */
+const CUT = 14;
+/**
+ * What each surface spills onto a lower one beside it: wet earth beside
+ * water, straw beside stubble, grit beside paving.
+ * @type {Readonly<Record<string, {colour: string, opacity: number}>>}
+ */
+const SPILLS = Object.freeze({
+  water: { colour: BANK, opacity: 0.9 },
+  stubble: { colour: STUBBLE, opacity: 0.6 },
+  paving: { colour: PAVING_SHADE, opacity: 0.55 },
+});
 /** Radius of a body token, and of the head's disc. */
 const TOKEN_R = 8;
 const HEAD_R = 15;
@@ -154,6 +170,23 @@ function boardDefs(svg) {
     const grad = el('linearGradient', { id: `ug-edge-${side}`, x1, y1, x2, y2 }, defs);
     el('stop', { offset: 0, 'stop-color': INK, 'stop-opacity': 0.3 }, grad);
     el('stop', { offset: 1, 'stop-color': INK, 'stop-opacity': 0 }, grad);
+  }
+  // Each surface's spill: fading in from a side, and round a corner.
+  /** @type {Record<string, [number, number]>} */
+  const corners = { nw: [0, 0], ne: [1, 0], se: [1, 1], sw: [0, 1] };
+  for (const [surface, { colour, opacity }] of Object.entries(SPILLS)) {
+    /** @param {Element} grad */
+    const stops = (grad) => {
+      el('stop', { offset: 0, 'stop-color': colour, 'stop-opacity': opacity }, grad);
+      el('stop', { offset: 0.5, 'stop-color': colour, 'stop-opacity': r1(opacity * 0.42) }, grad);
+      el('stop', { offset: 1, 'stop-color': colour, 'stop-opacity': 0 }, grad);
+    };
+    for (const [side, [x1, y1, x2, y2]] of Object.entries(dirs)) {
+      stops(el('linearGradient', { id: `ug-spill-${surface}-${side}`, x1, y1, x2, y2 }, defs));
+    }
+    for (const [corner, [gx, gy]] of Object.entries(corners)) {
+      stops(el('radialGradient', { id: `ug-spill-${surface}-${corner}`, cx: gx, cy: gy, r: 1 }, defs));
+    }
   }
   defineTokenPaint(defs);
   keptDefs.set(svg, defs);
@@ -545,8 +578,9 @@ function featureName(tile, ground) {
 }
 
 /**
- * One tile: its ground, the soft edges where it meets another ground,
- * and its feature: its painted piece (js/ui/board-pieces.js), or the
+ * One tile: its ground, its blend into the surfaces round it (a shaded
+ * edge on water, a fade of the higher surface beside it, its rounded-off
+ * corners), and its feature: its painted piece (js/ui/board-pieces.js), or the
  * code drawing when its picture is not listed.
  * @param {Element} parent
  * @param {Tile} tile
@@ -567,16 +601,40 @@ function drawTile(parent, tile, grounds, x, y, aimed, now, scene) {
   el('rect', {
     x: ox, y: oy, width: TILE + 0.5, height: TILE + 0.5, fill: groundFill(ground), 'data-ground': ground,
   }, g);
-  for (const side of softEdges(grounds, x, y)) {
+  const blend = tileBlend(grounds, x, y);
+  /** @param {string} side @param {number} w the strip's width */
+  const strip = (side, w) => {
     const horizontal = side === 'n' || side === 's';
+    return {
+      x: side === 'e' ? ox + TILE - w : ox,
+      y: side === 's' ? oy + TILE - w : oy,
+      width: horizontal ? TILE : w,
+      height: horizontal ? w : TILE,
+    };
+  };
+  for (const side of blend.shade) {
+    el('rect', { ...strip(side, EDGE), fill: `url(#ug-edge-${side})`, 'data-edge': side }, g);
+  }
+  for (const { side, from } of blend.spills) {
+    el('rect', { ...strip(side, SPILL), fill: `url(#ug-spill-${from}-${side})`, 'data-spill': side }, g);
+  }
+  for (const { corner, from } of blend.fades) {
     el('rect', {
-      x: side === 'e' ? ox + TILE - EDGE : ox,
-      y: side === 's' ? oy + TILE - EDGE : oy,
-      width: horizontal ? TILE : EDGE,
-      height: horizontal ? EDGE : TILE,
-      fill: `url(#ug-edge-${side})`,
-      'data-edge': side,
+      x: corner.endsWith('e') ? ox + TILE - SPILL : ox,
+      y: corner.startsWith('s') ? oy + TILE - SPILL : oy,
+      width: SPILL, height: SPILL,
+      fill: `url(#ug-spill-${from}-${corner})`, 'data-spill': corner,
     }, g);
+  }
+  for (const { corner, fill, beach } of blend.cuts) {
+    // The corner point, and how far the curve starts along each side.
+    const px = corner.endsWith('e') ? ox + TILE : ox;
+    const py = corner.startsWith('s') ? oy + TILE : oy;
+    const dx = corner.endsWith('e') ? -CUT : CUT;
+    const dy = corner.startsWith('s') ? -CUT : CUT;
+    const d = `M${px} ${py} L${px + dx} ${py} Q${px} ${py} ${px} ${py + dy} Z`;
+    el('path', { d, fill: groundFill(SURFACE_GROUND[fill]), 'data-cut': corner }, g);
+    if (beach !== null) el('path', { d, fill: SPILLS[beach].colour, opacity: SPILLS[beach].opacity, 'data-cut': corner }, g);
   }
   const f = el('g', { 'data-feature': featureName(tile, ground) }, g);
   if (!drawTilePiece(f, tile, x, y, scene)) drawFeature(f, tile, ground, x, y, aimed, now);

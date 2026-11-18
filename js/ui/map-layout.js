@@ -138,6 +138,76 @@ export function smoothPath(points, scale) {
 }
 
 /**
+ * The river as a closed band along its course, for a fill: the same
+ * curve smoothPath draws, widened to `halfWidth` either side, the width
+ * swelling and narrowing gently along the way so the banks wander like
+ * a brook's and never run parallel like a road's. The same every time.
+ * @param {readonly Point[]} points the river's course, in map units
+ * @param {number} scale
+ * @param {number} halfWidth in map units
+ * @param {{wobble?: number, phase?: number}} [opts]
+ *   wobble: how far the width strays, as a share of `halfWidth`;
+ *   phase: shifts the swelling along the river
+ * @returns {string}
+ */
+export function riverRibbon(points, scale, halfWidth, opts = {}) {
+  if (points.length < 2) return '';
+  const wobble = opts.wobble ?? 0.24;
+  const phase = opts.phase ?? 0;
+  const STEPS = 10;
+  /** @type {Point[]} */
+  const line = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[Math.max(0, i - 1)];
+    const b = points[i];
+    const c = points[i + 1];
+    const e = points[Math.min(points.length - 1, i + 2)];
+    const c1 = { x: b.x + (c.x - a.x) / 6, y: b.y + (c.y - a.y) / 6 };
+    const c2 = { x: c.x - (e.x - b.x) / 6, y: c.y - (e.y - b.y) / 6 };
+    for (let k = i === 0 ? 0 : 1; k <= STEPS; k += 1) {
+      const t = k / STEPS;
+      const m = 1 - t;
+      line.push({
+        x: m * m * m * b.x + 3 * m * m * t * c1.x + 3 * m * t * t * c2.x + t * t * t * c.x,
+        y: m * m * m * b.y + 3 * m * m * t * c1.y + 3 * m * t * t * c2.y + t * t * t * c.y,
+      });
+    }
+  }
+  /** @type {Point[]} */
+  const left = [];
+  /** @type {Point[]} */
+  const right = [];
+  let along = 0;
+  for (let i = 0; i < line.length; i += 1) {
+    const before = line[Math.max(0, i - 1)];
+    const after = line[Math.min(line.length - 1, i + 1)];
+    if (i > 0) along += Math.hypot(line[i].x - before.x, line[i].y - before.y);
+    const dx = after.x - before.x;
+    const dy = after.y - before.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const swell = 0.6 * Math.sin(along / 6.5 + 1.3 + phase) + 0.4 * Math.sin(along / 2.9 + 4.1 + phase * 1.7);
+    // The two banks stray a little differently, so the brook is not a
+    // mirror image of itself.
+    const lean = 0.5 * Math.sin(along / 4.3 + 0.7 + phase);
+    const wl = halfWidth * (1 + wobble * (swell + lean));
+    const wr = halfWidth * (1 + wobble * (swell - lean));
+    left.push({ x: line[i].x - (dy / len) * wl, y: line[i].y + (dx / len) * wl });
+    right.push({ x: line[i].x + (dy / len) * wr, y: line[i].y - (dx / len) * wr });
+  }
+  const loop = [...left, ...right.reverse()];
+  /** @param {Point} q */
+  const xy = (q) => `${round1(q.x * scale)} ${round1(q.y * scale)}`;
+  /** @param {Point} p @param {Point} q */
+  const mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 });
+  // A closed curve through the midpoints, each point the bend between.
+  let d = `M${xy(mid(loop[loop.length - 1], loop[0]))}`;
+  for (let i = 0; i < loop.length; i += 1) {
+    d += ` Q${xy(loop[i])} ${xy(mid(loop[i], loop[(i + 1) % loop.length]))}`;
+  }
+  return `${d} Z`;
+}
+
+/**
  * @typedef {object} Glint
  * @property {number} x
  * @property {number} y  the middle of the glint, in map units

@@ -53,6 +53,11 @@ export const ROLES = Object.freeze({
   harvester: 'A company machine that mows the forest and tears into dens.',
   saw: 'A fast company drone that hunts your bands and cuts dams.',
   planter: 'A company machine that paves the land over, tile by tile.',
+  hunter: 'A faster, longer company drone that hunts your bands, cuts deep and cuts dams.',
+  tower: 'A company tower that never moves, and shoots far down its row and column.',
+  beacon: 'A company beacon that never moves, and fires three tiles down any line.',
+  crane: 'A slow company crane that walks or swings, never both, and hits hard two tiles off.',
+  coil: 'A long company machine, coiled round what it guards till a band comes near.',
 });
 
 /** An animal's role line is at most this long. */
@@ -96,16 +101,18 @@ function count(n, one, many) {
 
 /**
  * Where an action reaches. Every action aims along one of the four
- * directions (js/engine/actions.js).
+ * directions (js/engine/actions.js), except a shot with `dirs: 8`, which
+ * may also aim along a diagonal (js/engine/lanes.js).
  * @param {ActionDef} action
  * @returns {string}
  */
 export function whereText(action) {
   const { minRange: min, maxRange: max } = action;
   if (max <= 1) return 'next to it';
-  if (min === max) return `${count(max, 'tile', 'tiles')} away in a straight line`;
-  if (min <= 1) return `up to ${count(max, 'tile', 'tiles')} away in a straight line`;
-  return `${min} to ${max} tiles away in a straight line`;
+  const line = action.dirs === 8 ? 'in a straight line or a diagonal' : 'in a straight line';
+  if (min === max) return `${count(max, 'tile', 'tiles')} away ${line}`;
+  if (min <= 1) return `up to ${count(max, 'tile', 'tiles')} away ${line}`;
+  return `${min} to ${max} tiles away ${line}`;
 }
 
 /**
@@ -141,6 +148,12 @@ export function actionSentence(action) {
       return `Deals ${damage} to a band ${where}, or cuts a dam there.`;
     case 'pave':
       return `Paves open ground or stubble ${where}, or deals ${damage} to a band there.`;
+    case 'crush':
+      return `Deals ${damage} to a band ${where}. It never harms dens, dams or ground.`;
+    case 'shot': {
+      const verb = action.id === 'swing' ? 'Swings at' : 'Shoots';
+      return `${verb} a band ${where} for ${damage}. Trees, stones, dens and bodies in the way stop the shot.`;
+    }
     default:
       break;
   }

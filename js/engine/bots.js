@@ -1,11 +1,14 @@
-// How the bots think. One sentence per type:
+// How the bots think. Each bot type names a `mind`, the thinking it runs,
+// so two types can share one. One paragraph per mind:
 //
-// - Saw-drone (the hunter): always engaged. It walks toward the nearest
+// - Hunter (the saw-drone's mind): always engaged. It walks toward the nearest
 //   band, trapped bands included, and strikes band, then habitat, then a dam.
 //   If the ground walls it off from every band (holes, water, stones,
 //   forest), it walks up to the wall nearest a band and waits there. It
 //   never turns on a den for want of a band: a moat holds it.
 //   (It still cuts a dam, and strikes a den, that it ends its walk next to.)
+//   The Hunter type runs it too, at speed 4, four long, with a cut of 3
+//   where the saw's is 2; its wounds do not grow back.
 // - Harvester: engaged, it charges the nearest band; otherwise it takes the
 //   shortest route to the nearest habitat, counting trees as if it could
 //   walk through them, and mows whatever tree is next on that route. It
@@ -14,28 +17,88 @@
 //   to, or, when engaged, for the nearest band if that is strictly closer.
 //   It strikes habitat, then a band anywhere but in forest, then paves
 //   open ground or stubble.
+// - Sentry (the Watchtower and the Beacon): it never walks. It shoots.
+// - Stalker (the Crane): it walks or it swings, never both in one turn. If
+//   it can hit a band from where it stands, it swings and does not walk.
+//   Otherwise it walks one tile toward the nearest firing tile, a tile two
+//   off a band cell it sees along a row or column, with no tree, stone, den
+//   or body (its own as it stands now included) on the tile between, and
+//   does not swing that turn. So beside it is safe, two off in a clear line
+//   is deadly, and three off is safe for that turn. Its route never crosses
+//   a band it sees or a tile beside one, except a firing tile it ends on;
+//   every tile between is beside a band, so its own head or neck never
+//   spoils the tile it is walking to. If no firing tile can be reached
+//   that way, it stays where it is.
+// - Coil: it lies still until a band it sees is in its reach; then it walks
+//   as the hunter does toward the nearest band, its body following its head,
+//   so whatever it was wrapped round opens. With no band in reach it stays
+//   where it is: it does not go home. It strikes a band next to it, by
+//   TARGET_PRIORITY, and nothing else.
+//
+// A bot shoots when its type's first action is a shot (see lanes.js): along
+// a row or column (and, if its action says `dirs: 8`, a diagonal), stopped
+// by the first tree, stone, den or body. Of the bands it can hit it shoots
+// the one highest in TARGET_PRIORITY, then the nearest, then the first in
+// shot direction order. A shooter is engaged when it can hit a band from
+// where it stands: a sentry never walks, and a stalker that can hit does
+// not walk, so that is exactly when it will shoot (unless a bot before it
+// in the same bots' turn changes the board first). A shooting mind's walk
+// never asks whether it is engaged.
 //
 // A strike on a band hits the band only; the tile under it is untouched.
 // So a band on a den shields it, and a dam under a band holds.
 //
-// On its turn a bot walks first, then strikes. Bots go one at a time, in
-// the order the level lists them. Plans are made by running that same turn
-// on a copy of the state (planBots), so a shown plan and the real turn
-// cannot disagree.
+// A wounded bot grows back a tile a step as it walks, up to full length,
+// unless its type says `regrows: false`: then its wounds stay.
+//
+// Under the trial rule `snakeBodies` a bot may step onto its own tail but
+// not back onto the rest of its body, so every bot's route to its goal
+// goes round the cells between its head and its tail.
+//
+// On its turn a bot walks first, then strikes (a stalker does one or the
+// other, never both). Bots go one at a time, in the order the level lists
+// them. Plans are made by running that same turn on a copy of the state
+// (planBots), so a shown plan and the real turn cannot disagree.
 
 /** @typedef {import('./types.js').Pos} Pos */
 /** @typedef {import('./types.js').Tile} Tile */
 /** @typedef {import('./types.js').Band} Band */
 /** @typedef {import('./types.js').Plan} Plan */
 /** @typedef {import('./types.js').BattleState} BattleState */
+/** @typedef {import('./types.js').Mind} Mind */
 /** @typedef {{path: Pos[], dist: number, field: Map<string, number>}} Approach */
 /** @typedef {{path: Pos[], route: Map<string, number>|null}} Walk */
 
-import { key, manhattan, neighbours } from './grid.js';
+import { DIR_ORDER, DIRS, add, inBounds, key, manhattan, neighbours } from './grid.js';
 import { canEnter, isHabitat, pave } from './terrain.js';
 import { BAND_TYPES, TARGET_PRIORITY, actionsFor } from './units.js';
-import { bandById, occupantAt, stepBand, reachable, copyPlan } from './band.js';
+import { bandById, occupantAt, stepBand, reachable, copyPlan, botGrows } from './band.js';
 import { resolveAction } from './actions.js';
+import { shotTargets, stopsShot } from './lanes.js';
+
+// Offered here as it always was; it lives in band.js, which needs it to
+// follow a bot's body along a walk under `snakeBodies`.
+export { botGrows };
+
+/**
+ * The thinking this bot runs: its type's mind, or null for a band without one.
+ * @param {Band} bot
+ * @returns {Mind|null}
+ */
+export function mindOf(bot) {
+  return BAND_TYPES[bot.type]?.mind ?? null;
+}
+
+/**
+ * The bot's shot, when its first action is one; null for a bot that
+ * strikes the next tile.
+ * @param {Band} bot
+ * @returns {import('./types.js').ActionDef|null}
+ */
+function shotOf(bot) {
+  const action = actionsFor(bot.type, bot.maxLen)[0];
+  return action !== undefined && action.effect === 'shot' ? action : null;
+}
 
 /**
  * Terrain a bot can stand on.
@@ -82,8 +145,8 @@ function reachOf(bot) {
 /**
  * Whether this bot targets this band cell: walks toward it, is engaged by
  * it and strikes it as a band.
- * - Only always-engaged hunters (the saw) see a trapped band.
- * - Only forest shelters a band cell from a planter.
+ * - Only always-engaged bots (the hunter mind) see a trapped band.
+ * - Only forest shelters a band cell from the planter mind.
  * @param {BattleState} state
  * @param {Band} bot
  * @param {Band} band
@@ -93,7 +156,7 @@ function reachOf(bot) {
 function sees(state, bot, band, cell) {
   if (band.side !== 'us') return false;
   if (band.trapped && BAND_TYPES[bot.type].alwaysEngaged !== true) return false;
-  if (bot.type === 'planter' && state.tiles[cell[1]][cell[0]].kind === 'forest') return false;
+  if (mindOf(bot) === 'planter' && state.tiles[cell[1]][cell[0]].kind === 'forest') return false;
   return true;
 }
 
@@ -257,26 +320,37 @@ function bestPriorityFrom(state, bot, pos) {
  * strikes it once it is in reach, so a band cannot turn a bot away by
  * standing in its lane. Only if the bands it walks around block every
  * route does the bot count them as not there, so it closes in and waits.
+ * Tiles in `avoid` are never on a route, in either count, unless they are
+ * goals. Under snake bodies the bot's own cells between its head and its
+ * tail count as in `avoid`: it cannot step back onto them (its tail moves
+ * off as it steps), so a bot whose goal lies behind its neck walks round.
  * Null when no tile the bot can walk to has any route to a goal even then.
  * @param {BattleState} state
  * @param {Band} bot
  * @param {Pos[]} goals
  * @param {(tile: Tile) => boolean} passable
  * @param {(dest: Pos) => number} [rank]
+ * @param {Set<string>} [avoid]
  * @returns {Approach|null}
  */
-function approach(state, bot, goals, passable, rank) {
+function approach(state, bot, goals, passable, rank, avoid = new Set()) {
   if (goals.length === 0) return null;
   const options = walkOptions(state, bot, BAND_TYPES[bot.type].speed);
+  const goalKeys = new Set(goals.map(key));
+  const shunned = state.rules?.snakeBodies === true
+    ? new Set([...avoid, ...bot.cells.slice(1, -1).map(key)])
+    : avoid;
   /** @type {Set<string>} */
-  const others = new Set();
+  const kept = new Set([...shunned].filter((k) => !goalKeys.has(k)));
+  /** @type {Set<string>} */
+  const others = new Set(kept);
   for (const band of state.bands) {
     if (band.id === bot.id) continue;
     for (const cell of band.cells) {
       if (!sees(state, bot, band, cell)) others.add(key(cell));
     }
   }
-  for (const blocked of [others, new Set()]) {
+  for (const blocked of [others, kept]) {
     const field = distanceField(state, goals, passable, blocked);
     /** @type {{dest: Pos, path: Pos[], dist: number, rank: number}|null} */
     let best = null;
@@ -300,12 +374,18 @@ function approach(state, bot, goals, passable, rank) {
  * Could the bot walk up to a band it sees and strike it this turn? True
  * when some tile next to such a band cell is within `reach - 1` walking
  * steps of the bot's head, by the bot's ordinary movement rules.
+ *
+ * A shooter instead: true when it can hit a band from where it stands.
+ * A shooter that can hit never walks first (a sentry never walks; a stalker
+ * that can hit swings instead of walking), so this is the turn it shoots.
  * @param {BattleState} state
  * @param {Band} bot
  * @returns {boolean}
  */
 export function bandInReach(state, bot) {
   if (bot.side !== 'bots' || bot.cells.length === 0) return false;
+  const shot = shotOf(bot);
+  if (shot !== null) return shotTargets(state, bot, shot).length > 0;
   const goals = new Set(tilesNextTo(state, seenCells(state, bot), walkable).map(key));
   if (goals.size === 0) return false;
   return walkOptions(state, bot, reachOf(bot) - 1).some((option) => goals.has(key(option.dest)));
@@ -313,7 +393,9 @@ export function bandInReach(state, bot) {
 
 /**
  * A bot is engaged when it could walk up to a band and strike it this
- * turn. Saw-drones are always engaged. Derived from the state, not stored.
+ * turn (a shooter: shoot it from where it stands). A type marked
+ * `alwaysEngaged` (the saw-drone, the Hunter) always is. Derived from the
+ * state, not stored.
  * @param {BattleState} state
  * @param {Band} bot
  * @returns {boolean}
@@ -322,6 +404,39 @@ export function isEngaged(state, bot) {
   if (bot.side !== 'bots' || bot.cells.length === 0) return false;
   if (BAND_TYPES[bot.type].alwaysEngaged === true) return true;
   return bandInReach(state, bot);
+}
+
+/**
+ * The tiles a stalker could fire from: for every band cell it sees and each
+ * of the four directions, the tile two steps back along that direction,
+ * when it is on the board and walkable and the tile between neither stops
+ * a shot nor has a band on it. The bot's own body as it stands now counts,
+ * so it does not step straight back from a band beside it only to find its
+ * neck in its own lane.
+ * @param {BattleState} state
+ * @param {Band} bot
+ * @returns {Pos[]}
+ */
+function firingTiles(state, bot) {
+  /** @type {Set<string>} */
+  const seen = new Set();
+  /** @type {Pos[]} */
+  const result = [];
+  for (const cell of seenCells(state, bot)) {
+    for (const dir of DIR_ORDER) {
+      /** @type {Pos} */
+      const back = [-DIRS[dir][0], -DIRS[dir][1]];
+      const between = add(cell, back);
+      const from = add(between, back);
+      if (!inBounds(state, from) || seen.has(key(from))) continue;
+      if (!walkable(state.tiles[from[1]][from[0]])) continue;
+      if (stopsShot(state.tiles[between[1]][between[0]])) continue;
+      if (occupantAt(state, between) !== undefined) continue;
+      seen.add(key(from));
+      result.push(from);
+    }
+  }
+  return result;
 }
 
 /**
@@ -378,7 +493,8 @@ function chooseWalk(state, bot) {
   /** @type {Map<string, number>|null} */
   let route = null;
 
-  if (bot.type === 'saw') {
+  const mind = mindOf(bot);
+  if (mind === 'hunter') {
     // Walled off: as near a band as it can get, counting every tile as open
     // ground, so it closes up to the wall and waits.
     const toWall = () => approach(
@@ -388,7 +504,7 @@ function chooseWalk(state, bot) {
       () => true,
     );
     chosen = toBand() ?? toWall() ?? toHabitat();
-  } else if (bot.type === 'harvester') {
+  } else if (mind === 'harvester') {
     if (isEngaged(state, bot)) chosen = toBand();
     if (chosen === null) {
       chosen = approach(state, bot, tilesNextTo(state, habitats, mowable), mowable);
@@ -398,7 +514,7 @@ function chooseWalk(state, bot) {
       const forest = tilesWhere(state, (tile) => tile.kind === 'forest');
       chosen = approach(state, bot, tilesNextTo(state, forest, walkable), walkable);
     }
-  } else if (bot.type === 'planter') {
+  } else if (mind === 'planter') {
     const habitat = toHabitat();
     const band = isEngaged(state, bot) ? toBand() : null;
     if (band !== null) {
@@ -408,6 +524,22 @@ function chooseWalk(state, bot) {
     } else {
       chosen = habitat ?? approach(state, bot, planterZone(state), walkable);
     }
+  } else if (mind === 'stalker') {
+    // It walks or it swings: with a band it can hit from here, it stays.
+    // Never through a tile beside a band it sees: every firing tile's
+    // tile between is one, and a body there spoils that firing tile.
+    // (Under snake bodies `approach` routes it round its own neck too.)
+    if (!bandInReach(state, bot)) {
+      const beside = new Set(seenCells(state, bot).map(key));
+      for (const pos of tilesNextTo(state, seenCells(state, bot), () => true)) beside.add(key(pos));
+      chosen = approach(state, bot, firingTiles(state, bot), walkable, undefined, beside);
+    }
+  } else if (mind === 'coil') {
+    // Still until a band is in reach; then the hunter's walk toward it.
+    if (bandInReach(state, bot)) chosen = toBand();
+  } else if (mind === 'sentry') {
+    // It never walks.
+    chosen = null;
   }
 
   return { path: chosen === null ? [] : chosen.path, route };
@@ -416,12 +548,29 @@ function chooseWalk(state, bot) {
 /**
  * The tile the bot strikes from where it stands: the first adjacent
  * target in its type's order. Directions are tried N, E, S, W.
+ * A shooter shoots the band it can hit that is highest in
+ * TARGET_PRIORITY, then the nearest (a diagonal step counts as one),
+ * then the first in shot direction order: N, E, S, W, NE, SE, SW, NW.
  * @param {BattleState} state
  * @param {Band} bot
  * @param {Map<string, number>|null} route
  * @returns {Pos|null}
  */
 function chooseStrike(state, bot, route) {
+  const shot = shotOf(bot);
+  if (shot !== null) {
+    /** @type {{at: Pos, rank: number, dist: number}|null} */
+    let best = null;
+    for (const target of shotTargets(state, bot, shot)) {
+      const occupant = /** @type {Band} */ (occupantAt(state, target.at));
+      const candidate = { at: target.at, rank: priorityOf(occupant), dist: target.dist };
+      const better = best === null || candidate.rank < best.rank ||
+        (candidate.rank === best.rank && candidate.dist < best.dist);
+      if (better) best = candidate;
+    }
+    return best === null ? null : best.at;
+  }
+
   const head = bot.cells[0];
   const adjacent = neighbours(state, head).map((pos) => ({
     pos,
@@ -460,11 +609,12 @@ function chooseStrike(state, bot, route) {
   /** @returns {Pos|null} */
   const habitat = () => empty(isHabitat)[0] ?? null;
 
-  if (bot.type === 'saw') {
+  const mind = mindOf(bot);
+  if (mind === 'hunter') {
     return band() ?? habitat() ?? empty((tile) => tile.kind === 'dam')[0] ?? null;
   }
 
-  if (bot.type === 'harvester') {
+  if (mind === 'harvester') {
     const target = band() ?? habitat();
     if (target !== null) return target;
     const trees = empty((tile) => tile.kind === 'forest');
@@ -486,9 +636,11 @@ function chooseStrike(state, bot, route) {
     return trees[0] ?? null;
   }
 
-  if (bot.type === 'planter') {
+  if (mind === 'planter') {
     return habitat() ?? band() ?? empty((tile) => pave(tile) !== null)[0] ?? null;
   }
+
+  if (mind === 'coil') return band();
 
   return null;
 }
@@ -503,8 +655,9 @@ export function botOrder(state) {
 }
 
 /**
- * One bot's turn: walk, then strike. Mutates the state and returns what
- * the bot did, in the shape of a plan.
+ * One bot's turn: walk, then strike; a stalker that walked does not
+ * strike. Mutates the state and returns what the bot did, in the shape
+ * of a plan.
  * @param {BattleState} state
  * @param {string} botId
  * @returns {Plan}
@@ -516,14 +669,20 @@ export function runBot(state, botId) {
 
   const walk = chooseWalk(state, bot);
   if (walk.path.length > 0) {
+    const grows = botGrows(bot);
     plan.path = walk.path.map(copyPos);
-    state.events.push({ kind: 'move', band: bot.id, path: walk.path.map(copyPos) });
+    // A bot whose wounds stay says so, step by step, so the board's glide does not grow it.
+    state.events.push(grows
+      ? { kind: 'move', band: bot.id, path: walk.path.map(copyPos) }
+      : { kind: 'move', band: bot.id, path: walk.path.map(copyPos), grow: walk.path.map(() => false) });
     for (const pos of walk.path) {
-      bot.cells = stepBand(bot, pos).cells;
+      bot.cells = stepBand(bot, pos, grows).cells;
     }
   }
 
-  const strike = chooseStrike(state, bot, walk.route);
+  // A stalker walks or swings, never both.
+  const holds = walk.path.length > 0 && mindOf(bot) === 'stalker';
+  const strike = holds ? null : chooseStrike(state, bot, walk.route);
   if (strike !== null) {
     const action = actionsFor(bot.type, bot.maxLen)[0];
     plan.strike = copyPos(strike);

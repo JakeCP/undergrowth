@@ -5,6 +5,7 @@
 /** @typedef {import('../engine/types.js').Pos} Pos */
 
 import { BAND_TYPES } from '../engine/units.js';
+import { answeredByBristle } from '../engine/actions.js';
 import { countHabitats } from '../engine/battle.js';
 
 /**
@@ -40,11 +41,14 @@ function isPlural(name) {
 }
 
 /**
+ * The way from one tile to another: a diagonal when it is an exact one
+ * (only a shot aims that way), else the nearer of the four.
  * @param {number} dx
  * @param {number} dy
- * @returns {'north'|'east'|'south'|'west'}
+ * @returns {'north'|'east'|'south'|'west'|'north-east'|'south-east'|'south-west'|'north-west'}
  */
 function direction(dx, dy) {
+  if (dx !== 0 && Math.abs(dx) === Math.abs(dy)) return `${dy > 0 ? 'south' : 'north'}-${dx > 0 ? 'east' : 'west'}`;
   if (Math.abs(dy) >= Math.abs(dx)) return dy > 0 ? 'south' : 'north';
   return dx > 0 ? 'east' : 'west';
 }
@@ -114,7 +118,9 @@ export function describeIntent(state, bot) {
   let cost = '';
   if (occupant !== undefined) {
     phrase = `hit ${BAND_TYPES[occupant.type].name}`;
-    const bristle = occupant.side === 'us' && bot.side === 'bots' ? (BAND_TYPES[occupant.type].bristle ?? 0) : 0;
+    // Only a contact strike is answered: a shot never is.
+    const answered = occupant.side === 'us' && bot.side === 'bots' && answeredByBristle(effect);
+    const bristle = answered ? (BAND_TYPES[occupant.type].bristle ?? 0) : 0;
     if (bristle >= bot.cells.length) cost = ', and be destroyed by its spines';
     else if (bristle > 0) cost = `, and lose ${bristle} to its spines`;
   } else if (terrain === 'habitat' || terrain === 'habitatDamaged') {
@@ -288,9 +294,14 @@ export function describeEvents(state, events) {
       if (outcome.kind === 'falls') {
         sentences.push(fallPhrase(state, name, outcome.at, outcome.cause));
       } else if (outcome.kind === 'bumped') {
-        sentences.push(outcome.other === null
-          ? `${name} is pushed and bumps into ${bumpedInto(state, events, i, outcome.band)}`
-          : `${name} is pushed and bumps into ${bandName(state, outcome.other)}`);
+        if (outcome.other === null) {
+          sentences.push(`${name} is pushed and bumps into ${bumpedInto(state, events, i, outcome.band)}`);
+        } else if (outcome.other === outcome.band) {
+          // Only under the trial rule snakeBodies, where its own body blocks it.
+          sentences.push(`${name} is pushed and bumps into its own body`);
+        } else {
+          sentences.push(`${name} is pushed and bumps into ${bandName(state, outcome.other)}`);
+        }
       } else {
         sentences.push(`${name} is pushed back`);
       }

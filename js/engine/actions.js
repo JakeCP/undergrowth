@@ -3,11 +3,24 @@
 /** @typedef {import('./types.js').Band} Band */
 /** @typedef {import('./types.js').BattleState} BattleState */
 /** @typedef {import('./types.js').ActionDef} ActionDef */
+/** @typedef {import('./types.js').Effect} Effect */
 
-import { DIR_ORDER, DIRS, add, eq, inBounds, dirBetween } from './grid.js';
+import { DIR_ORDER, DIRS, SHOT_DIR_ORDER, add, eq, inBounds, dirBetween, shotDirBetween } from './grid.js';
 import { dig, build, mow, pave, cut, isDeadly, isHabitat, strikeHabitat } from './terrain.js';
 import { bandById, occupantAt, damageBand, pushBand } from './band.js';
 import { actionsFor, BAND_TYPES } from './units.js';
+import { shotLane } from './lanes.js';
+
+/**
+ * Whether a bristly band hurts the bot whose strike of this kind hits it:
+ * the bots' contact strikes only. A shot is never answered, even one fired
+ * from the next tile, and an animal's bite never sets it off.
+ * @param {Effect} effect
+ * @returns {boolean}
+ */
+export function answeredByBristle(effect) {
+  return effect === 'mow' || effect === 'saw' || effect === 'pave' || effect === 'crush';
+}
 
 /**
  * @param {Band} band
@@ -168,22 +181,34 @@ export function resolveAction(state, band, action, target) {
     applyTransform(state, target, build, action.id);
     return;
   }
-  if (action.effect === 'mow' || action.effect === 'saw' || action.effect === 'pave') {
+  if (action.effect === 'shot') {
+    // A shot hits the band at `target` only if that is where its lane
+    // stops (see lanes.js), along one of the shooter's own directions.
+    // It never changes terrain.
+    const dir = shotDirBetween(band.cells[0], target);
+    if (dir === null || !SHOT_DIR_ORDER.slice(0, action.dirs ?? 4).includes(dir)) return;
+    const { hit } = shotLane(state, band, action, dir);
+    const occupant = hit !== null && eq(hit, target) ? occupantAt(state, target) : undefined;
+    if (occupant !== undefined) damageBand(state, occupant.id, action.damage);
+    return;
+  }
+  if (action.effect === 'mow' || action.effect === 'saw' || action.effect === 'pave' || action.effect === 'crush') {
     // A strike on a band hits the band only. The tile under it is
     // untouched, so a band on a den shields it and a dam under a band
-    // holds. Terrain is struck only when nobody stands on it.
+    // holds. Terrain is struck only when nobody stands on it, and a
+    // crush never strikes terrain.
     const occupant = occupantAt(state, target);
     if (occupant !== undefined) {
       // Bristle: a bot that strikes a bristly band is hurt by it, even
-      // when the strike wipes the band out. Only these three effects are
-      // bot strikes, so an animal's bite never sets it off.
+      // when the strike wipes the band out.
       const bristle = BAND_TYPES[occupant.type].bristle ?? 0;
       damageBand(state, occupant.id, action.damage);
-      if (bristle > 0 && bandById(state, band.id) !== undefined) {
+      if (answeredByBristle(action.effect) && bristle > 0 && bandById(state, band.id) !== undefined) {
         damageBand(state, band.id, bristle);
       }
       return;
     }
+    if (action.effect === 'crush') return;
     applyTransform(state, target, (tile) => {
       if (isHabitat(tile)) return strikeHabitat(tile);
       if (tile.kind === 'dam') return cut(tile);

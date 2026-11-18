@@ -28,6 +28,39 @@ export function occupantAt(state, p) {
 }
 
 /**
+ * Whether the trial rule `snakeBodies` is on: a band may step onto its own
+ * tail only, so its body is always one line that follows its head.
+ * @param {BattleState} state
+ * @returns {boolean}
+ */
+function snakeBodies(state) {
+  return state.rules?.snakeBodies === true;
+}
+
+/**
+ * Whether the band's leader may step onto `p` as far as its own body goes,
+ * under `snakeBodies`, with the body standing as `band.cells`: `p` is none
+ * of its cells, or it is the tail and the band does not grow on this step
+ * (a band that grows keeps its tail where it is). Always so without the rule.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos} p
+ * @returns {boolean}
+ */
+function clearOfOwnBody(state, band, p) {
+  if (!snakeBodies(state)) return true;
+  const at = band.cells.findIndex((c) => eq(c, p));
+  if (at === -1) return true;
+  if (at !== band.cells.length - 1) return false;
+  return band.cells.length >= band.maxLen || !growsOn(state, band, p);
+}
+
+/**
+ * Whether the band's leader may step onto `p`: terrain it can enter, and no
+ * other band there. Its own body never blocks it, except under the trial
+ * rule `snakeBodies`, where every cell of `band.cells` but the tail does
+ * (see `clearOfOwnBody`). To judge a later step of a walk, pass the band as
+ * it stands by then (see `bandAfterStep`).
  * @param {BattleState} state
  * @param {Band} band
  * @param {Pos} p
@@ -39,7 +72,8 @@ export function canStep(state, band, p) {
   const flies = BAND_TYPES[band.type].flies;
   if (!canEnter(tile, band.side, flies)) return false;
   const occupant = occupantAt(state, p);
-  return occupant === undefined || occupant.id === band.id;
+  if (occupant !== undefined && occupant.id !== band.id) return false;
+  return clearOfOwnBody(state, band, p);
 }
 
 /**
@@ -55,7 +89,8 @@ export function passesThrough(band) {
 /**
  * Whether the band may step onto `p` on the way, not necessarily stopping
  * there: `canStep`, except that a band that passes through ignores who
- * stands on the tile. Terrain blocks it all the same.
+ * stands on the tile. Terrain blocks it all the same, and so, under
+ * `snakeBodies`, does its own body.
  * @param {BattleState} state
  * @param {Band} band
  * @param {Pos} p
@@ -64,7 +99,8 @@ export function passesThrough(band) {
 export function canPass(state, band, p) {
   if (!passesThrough(band)) return canStep(state, band, p);
   if (!inBounds(state, p)) return false;
-  return canEnter(state.tiles[p[1]][p[0]], band.side, BAND_TYPES[band.type].flies);
+  if (!canEnter(state.tiles[p[1]][p[0]], band.side, BAND_TYPES[band.type].flies)) return false;
+  return clearOfOwnBody(state, band, p);
 }
 
 /**
@@ -82,6 +118,41 @@ export function mendsOn(state, band, p) {
   if (band.side !== 'us' || band.fresh === true) return true;
   if (!inBounds(state, p)) return false;
   return state.tiles[p[1]][p[0]].kind === 'forest';
+}
+
+/**
+ * Whether this bot grows back toward full length as it walks. Only a type
+ * that says `regrows: false` keeps its wounds.
+ * @param {Band} bot
+ * @returns {boolean}
+ */
+export function botGrows(bot) {
+  return BAND_TYPES[bot.type]?.regrows !== false;
+}
+
+/**
+ * Whether the band grows as its leader steps onto `p`, as the move itself
+ * decides it: an animal band by `mendsOn`, a bot by `botGrows`.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos} p
+ * @returns {boolean}
+ */
+function growsOn(state, band, p) {
+  return band.side === 'bots' ? botGrows(band) : mendsOn(state, band, p);
+}
+
+/**
+ * The band after its leader steps onto `p`, as it would take the step in a
+ * move (growing by `growsOn`): for following a body along a walk under
+ * `snakeBodies`. Its plan is dropped.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos} p
+ * @returns {Band}
+ */
+export function bandAfterStep(state, band, p) {
+  return { ...band, plan: null, cells: stepBand({ ...band, plan: null }, p, growsOn(state, band, p)).cells };
 }
 
 /**
@@ -118,7 +189,18 @@ export function cellsAfter(state, band, path) {
  * @returns {boolean}
  */
 export function landsClear(state, band, path) {
-  return cellsAfter(state, band, path).every((cell) => {
+  return clearOfOthers(state, band, cellsAfter(state, band, path));
+}
+
+/**
+ * Whether no band but `band` stands on any of `cells`.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {Pos[]} cells
+ * @returns {boolean}
+ */
+function clearOfOthers(state, band, cells) {
+  return cells.every((cell) => {
     const occupant = occupantAt(state, cell);
     return occupant === undefined || occupant.id === band.id;
   });
@@ -128,7 +210,8 @@ export function landsClear(state, band, path) {
  * Whether the band's leader may walk `path`, by the band's own movement
  * rules: one orthogonal step at a time, each one a tile it may pass, at
  * most `steps` steps (default its type's speed), ending with every cell
- * on free ground. The same rule `reachable` and `applyMove` use.
+ * on free ground. Under `snakeBodies` each step is judged against the body
+ * as it stands at that step. The same rule `reachable` and `applyMove` use.
  * @param {BattleState} state
  * @param {Band} band
  * @param {Pos[]} path
@@ -138,10 +221,13 @@ export function landsClear(state, band, path) {
 export function canWalk(state, band, path, steps) {
   if (band.cells.length === 0 || path.length === 0) return false;
   if (path.length > (steps ?? BAND_TYPES[band.type].speed)) return false;
+  const follow = snakeBodies(state);
+  let walker = band;
   let prev = band.cells[0];
   for (const p of path) {
     if (Math.abs(prev[0] - p[0]) + Math.abs(prev[1] - p[1]) !== 1) return false;
-    if (!canPass(state, band, p)) return false;
+    if (!canPass(state, walker, p)) return false;
+    if (follow) walker = bandAfterStep(state, walker, p);
     prev = p;
   }
   return landsClear(state, band, path);
@@ -198,6 +284,7 @@ export function reachable(state, bandId, steps) {
   const band = bandById(state, bandId);
   if (band === undefined || band.cells.length === 0) return result;
   const speed = steps ?? BAND_TYPES[band.type].speed;
+  if (snakeBodies(state)) return reachableFollowing(state, band, speed);
   if (passesThrough(band)) return reachableThrough(state, band, speed);
   const start = band.cells[0];
   const visited = new Set([key(start)]);
@@ -252,6 +339,51 @@ function reachableThrough(state, band, speed) {
         next.push(longer);
         const k = key(p);
         if (!result.has(k) && landsClear(state, band, longer)) result.set(k, longer);
+      }
+    }
+    layer = next;
+  }
+  return result;
+}
+
+/**
+ * `reachable` under `snakeBodies`, where the body follows the head, so
+ * which tiles are free depends on the route. Every route is walked with
+ * the body moved step by step, shorter first and in N, E, S, W order, and
+ * the first that may end on a tile (landing clear, for a band that passes
+ * through) gives that tile its path. A route that leaves the body as an
+ * earlier route already did is not walked again. The tile the head starts
+ * on is never a destination. Speeds are small, so the routes are few.
+ * @param {BattleState} state
+ * @param {Band} band
+ * @param {number} speed
+ * @returns {Map<string, Pos[]>}
+ */
+function reachableFollowing(state, band, speed) {
+  /** @type {Map<string, Pos[]>} */
+  const result = new Map();
+  const start = band.cells[0];
+  /** @param {Band} b */
+  const bodyKey = (b) => b.cells.map(key).join(';');
+  const seen = new Set([bodyKey(band)]);
+  /** @type {Array<{path: Pos[], walker: Band}>} */
+  let layer = [{ path: [], walker: band }];
+  for (let length = 1; length <= speed && layer.length > 0; length += 1) {
+    /** @type {Array<{path: Pos[], walker: Band}>} */
+    const next = [];
+    for (const { path, walker } of layer) {
+      for (const dir of DIR_ORDER) {
+        const p = add(walker.cells[0], DIRS[dir]);
+        if (!canPass(state, walker, p)) continue;
+        const moved = bandAfterStep(state, walker, p);
+        const k = bodyKey(moved);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const longer = [...path, p];
+        next.push({ path: longer, walker: moved });
+        const dest = key(p);
+        if (eq(p, start) || result.has(dest)) continue;
+        if (!passesThrough(band) || clearOfOthers(state, band, moved.cells)) result.set(dest, longer);
       }
     }
     layer = next;
@@ -318,6 +450,9 @@ export function pushBand(state, bandId, dir) {
   if (destInBounds) {
     const occupant = occupantAt(state, dest);
     if (occupant !== undefined && occupant.id !== bandId) other = occupant;
+    // Under snakeBodies its own body blocks it as another's would, all but
+    // its tail; a push never grows a band. It bumps into itself, once.
+    else if (occupant !== undefined && snakeBodies(state) && !eq(dest, band.cells[band.cells.length - 1])) other = band;
   }
 
   let blocked;
@@ -337,7 +472,7 @@ export function pushBand(state, bandId, dir) {
       band: bandId,
       other: other !== undefined ? other.id : null,
     };
-    const otherId = other !== undefined ? other.id : null;
+    const otherId = other !== undefined && other.id !== bandId ? other.id : null;
     damageBand(state, bandId, 1);
     if (otherId !== null) damageBand(state, otherId, 1);
     state.events.push({ kind: 'push', outcome });

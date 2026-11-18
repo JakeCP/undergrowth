@@ -2,4 +2,4 @@
 // WebP files under assets/textures/. Do not edit by hand; run
 // `node scripts/textures.mjs` after adding or removing a texture.
 /** @type {readonly string[]} */
-export const TEXTURES_PRESENT = Object.freeze(['bank', 'grass', 'meadow', 'paving', 'soil', 'stone', 'stubble', 'water']);
+export const TEXTURES_PRESENT = Object.freeze(['bank', 'grass-clover', 'grass-lush', 'grass', 'meadow', 'paving', 'soil', 'stone', 'stubble', 'water']);

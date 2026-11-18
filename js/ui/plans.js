@@ -12,7 +12,7 @@
  * @typedef {{id: string, key: string, line: Pos[], strike: Pos|null, strikeFrom: Pos}} PlanDrawing
  */
 
-import { isEngaged, botOrder } from '../engine/bots.js';
+import { isEngaged, botOrder, botGrows } from '../engine/bots.js';
 import { isHabitat } from '../engine/terrain.js';
 import { inBounds } from '../engine/grid.js';
 import { bandById, occupantAt, stepBand } from '../engine/band.js';
@@ -106,7 +106,7 @@ export function struckHabitats(state) {
   for (const id of botOrder(copy)) {
     const bot = bandById(copy, id);
     if (bot === undefined || bot.cells.length === 0 || bot.plan === null) continue;
-    for (const pos of bot.plan.path) bot.cells = stepBand(bot, pos).cells;
+    for (const pos of bot.plan.path) bot.cells = stepBand(bot, pos, botGrows(bot)).cells;
     const at = bot.plan.strike;
     if (at === null || !inBounds(copy, at)) continue;
     const hitsDen = isHabitat(copy.tiles[at[1]][at[0]]) && occupantAt(copy, at) === undefined;

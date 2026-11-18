@@ -77,6 +77,7 @@ export function makeState(grid, bands, extra = {}) {
     outcome: null,
     lostReason: null,
     events: [],
+    rules: {},
     ...extra,
   };
 }

@@ -71,6 +71,9 @@ const ACTION_SOUNDS = new Map([
   ['dig', 'dig'],
   ['mow', 'mow'],
   ['saw', 'mow'],
+  ['shoot', 'bite'],
+  ['squeeze', 'bite'],
+  ['swing', 'dig'],
 ]);
 
 /**

@@ -101,7 +101,7 @@ function tempRoot(t) {
 
 test('the script and the game agree on the texture names', () => {
   assert.deepEqual(REQUIRED, ['grass', 'soil', 'water', 'stubble', 'paving', 'stone']);
-  assert.deepEqual(OPTIONAL, ['meadow', 'bank']);
+  assert.deepEqual(OPTIONAL, ['meadow', 'bank', 'grass-lush', 'grass-clover']);
   assert.deepEqual(REQUIRED, [...REQUIRED_TEXTURES]);
   assert.deepEqual(OPTIONAL, [...OPTIONAL_TEXTURES]);
   assert.equal(MAX_SIZE, 512);
@@ -199,7 +199,7 @@ test('textureListSource writes a module that exports the names', async (t) => {
 test('the committed texture list is what the script would write', () => {
   const dir = path.join(ROOT, 'assets/textures');
   const names = fs.existsSync(dir)
-    ? fs.readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -5)).sort()
+    ? fs.readdirSync(dir).filter((f) => f.endsWith('.webp')).sort().map((f) => f.slice(0, -5))
     : [];
   assert.equal(
     fs.readFileSync(path.join(ROOT, 'js/ui/texture-list.js'), 'utf8'),
@@ -304,7 +304,7 @@ test('run: converts PNG sources to WebP of 512 px or less and updates both lists
   assert.deepEqual(result.converted, ['grass', 'meadow']);
   assert.deepEqual(result.present, ['grass', 'meadow']);
   assert.deepEqual(result.missingRequired, ['soil', 'water', 'stubble', 'paving', 'stone']);
-  assert.deepEqual(result.missingOptional, ['bank']);
+  assert.deepEqual(result.missingOptional, ['bank', 'grass-lush', 'grass-clover']);
   assert.equal(result.ok, false, 'required textures are still missing');
   assert.equal(result.changed, true);
 

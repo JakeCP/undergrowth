@@ -95,6 +95,17 @@ test('bite: the attacker lunges, the target shakes on impact, lost tail tokens p
   assert.equal(steps[3].duration, DURATION.pop);
 });
 
+test('the new bots\' strikes lunge toward a target however far off it is', () => {
+  const steps = animSteps([action('tower-0', 'shoot', [0, 0], [5, 0])]);
+  assert.equal(steps[0].kind, 'lunge');
+  assert.equal(steps[0].band, 'tower-0');
+  assert.deepEqual(steps[0].origin, [0, 0]);
+  assert.deepEqual(steps[0].at, [5, 0]);
+  for (const id of ['shoot', 'swing', 'squeeze']) {
+    assert.deepEqual(kinds(animSteps([action('x', id, [0, 0], [2, 0])])), ['lunge'], id);
+  }
+});
+
 test('every attack action lunges, and an unknown action does too', () => {
   for (const id of ['bite', 'maul', 'ram', 'shove', 'strike', 'sting', 'some-new-attack']) {
     const steps = animSteps([action('x', id, [0, 0], [1, 0])]);

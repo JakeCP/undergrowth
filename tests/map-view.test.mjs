@@ -123,6 +123,55 @@ test('map: a level panel gives the goal with its dens, and March starts it', () 
   assert.deepEqual(chosen, ALL);
 });
 
+test('map: names are lettered on the map itself, with no plate behind them', () => {
+  const { svg, texts } = mount(cleared(...ALL));
+  for (const level of LEVELS) {
+    const label = svg.querySelector(`[data-label="${level.id}"]`);
+    assert.ok(label, `${level.id} has its name`);
+    assert.deepEqual(label.children.map((n) => n.tag), ['text', 'text'], 'a soft halo, then the letters: no box');
+    assert.ok(label.children.every((n) => n.textContent === level.name));
+    const [halo, name] = label.children;
+    assert.equal(halo.attrs.fill, 'none');
+    assert.equal(name.attrs['paint-order'], 'stroke fill', 'the dark edge lies under the letters');
+    assert.equal(name.attrs.stroke, halo.attrs.stroke);
+  }
+  assert.ok(texts.includes('Trading post'));
+});
+
+test('map: the chosen place is lit from under and its name warms; no ring is drawn round it', () => {
+  const ui = mount(cleared(...ALL));
+  const glow = ui.svg.all().find((n) => n.attrs.class === 'map-select');
+  assert.equal(glow.attrs.visibility, 'hidden', 'nothing is chosen at first');
+  assert.equal(glow.attrs.fill, 'url(#map-chosen)');
+  assert.equal(glow.attrs.stroke, undefined, 'a pool of light, not a line');
+  assert.equal(ui.svg.all().some((n) => n.attrs['stroke-dasharray'] !== undefined), false, 'no dashed line anywhere on the map');
+  const level = LEVELS[2];
+  ui.buttons.find((b) => b.getAttribute('aria-label') === level.name).dispatch('click');
+  assert.equal(glow.attrs.visibility, 'visible');
+  const node = CAMPAIGN_NODES.find((n) => n.levelId === level.id);
+  assert.ok(node !== undefined);
+  for (const other of LEVELS) {
+    const label = ui.svg.querySelector(`[data-label="${other.id}"]`);
+    assert.equal(label.classList.contains('map-label--chosen'), other.id === level.id, other.id);
+  }
+  // The level to play next keeps its breathing glow, without the hard ellipse at its foot.
+  const fresh = mount(newProgress());
+  const next = fresh.svg.querySelector(`[data-node="${LEVELS[0].id}"]`);
+  assert.ok(next.all().some((n) => n.attrs.class === 'map-glow'));
+  assert.equal(next.all().some((n) => n.tag === 'ellipse' && n.attrs.fill === 'none'), false);
+});
+
+test('map: the river is a band of water, not a stroked line', () => {
+  const { svg } = mount(newProgress());
+  const river = svg.querySelector('[data-river]');
+  assert.ok(river.children.length >= 5, 'shadow, earth, shallows, water, current');
+  for (const part of river.children) {
+    assert.equal(part.tag, 'path');
+    assert.match(part.attrs.d, / Z$/, 'a closed shape');
+    assert.equal(part.attrs.stroke, undefined);
+  }
+});
+
 test('map: the trading post opens the shop', () => {
   const ui = mount(newProgress());
   ui.buttons.find((b) => b.getAttribute('aria-label') === 'Trading post').dispatch('click');

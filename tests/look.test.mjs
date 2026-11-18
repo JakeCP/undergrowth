@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TILE, hash01, groundGrid, softEdges, showGrid, forestTrees, TREE_KINDS,
+  TILE, hash01, groundGrid, softEdges, tileBlend, showGrid, forestTrees, TREE_KINDS,
   bandTokens, aimedHabitats, phaseDelay,
   tileSelector, groundSelector, featureSelector, bandSelector, tokenSelector, headSelector,
 } from '../js/ui/look.js';
@@ -43,15 +43,59 @@ test('groundGrid: a dam over water also makes a bank, a dam over a hole does not
   assert.equal(g[1][1], 'bank', 'still beside the water dam');
 });
 
-test('softEdges: only the sides whose neighbour is another ground, never the board edge', () => {
-  const g = groundGrid(makeState(['..T', '...', '...'], []));
+test('softEdges: only the sides whose neighbour is another surface, never the board edge', () => {
+  const g = groundGrid(makeState(['..T', '._.', '...'], []));
   assert.deepEqual(softEdges(g, 0, 0), [], 'open among open, board edge on two sides');
-  assert.deepEqual(softEdges(g, 1, 0), ['e'], 'forest to the east');
-  assert.deepEqual(softEdges(g, 2, 0), ['s', 'w'], 'the forest blends into both open neighbours');
-  assert.deepEqual(softEdges(g, 1, 1), []);
+  assert.deepEqual(softEdges(g, 1, 0), ['s'], 'a wood to the east is the same grass; the stubble below is not');
+  assert.deepEqual(softEdges(g, 2, 0), [], 'the wood stands on grass, among grass');
+  assert.deepEqual(softEdges(g, 1, 1), ['n', 'e', 's', 'w'], 'stubble in grass');
   const river = groundGrid(makeState(['.~'], []));
-  assert.deepEqual(softEdges(river, 0, 0), ['e'], 'a bank blends into the water');
+  assert.deepEqual(softEdges(river, 0, 0), ['e'], 'a bank meets the water');
   assert.deepEqual(softEdges(river, 1, 0), ['w']);
+});
+
+test('tileBlend: water is shaded at its banks, and the land beside it takes its wet earth', () => {
+  const g = groundGrid(makeState(['.~', '..'], []));
+  assert.deepEqual(tileBlend(g, 1, 0), {
+    shade: ['s', 'w'], spills: [], fades: [],
+    cuts: [{ corner: 'sw', fill: 'grass', beach: 'water' }],
+  }, 'the water: its one free corner rounded off, grass under the bank\'s earth');
+  assert.deepEqual(tileBlend(g, 0, 0), { shade: [], spills: [{ side: 'e', from: 'water' }], fades: [], cuts: [] });
+  assert.deepEqual(tileBlend(g, 1, 1), { shade: [], spills: [{ side: 'n', from: 'water' }], fades: [], cuts: [] });
+  assert.deepEqual(
+    tileBlend(g, 0, 1), { shade: [], spills: [], fades: [{ corner: 'ne', from: 'water' }], cuts: [] },
+    'touching the water only by a corner: the fade goes round it',
+  );
+});
+
+test('tileBlend: inside a bend the land\'s corner is rounded off with water', () => {
+  const g = groundGrid(makeState(['~~', '~.'], []));
+  assert.deepEqual(tileBlend(g, 1, 1), {
+    shade: [],
+    spills: [{ side: 'n', from: 'water' }, { side: 'w', from: 'water' }],
+    fades: [],
+    cuts: [{ corner: 'nw', fill: 'water', beach: null }],
+  });
+  assert.deepEqual(tileBlend(g, 0, 0), { shade: [], spills: [], fades: [], cuts: [] }, 'water among water and the board edge');
+});
+
+test('tileBlend: nothing between tiles on grass, whatever stands on them, and nothing at the board edge', () => {
+  const g = groundGrid(makeState(['.T;', 'oHS', ',..'], []));
+  for (let y = 0; y < 3; y += 1) {
+    for (let x = 0; x < 3; x += 1) {
+      assert.deepEqual(tileBlend(g, x, y), { shade: [], spills: [], fades: [], cuts: [] }, `${x},${y}`);
+    }
+  }
+  const field = groundGrid(makeState(['__', '__'], []));
+  assert.deepEqual(tileBlend(field, 0, 0), { shade: [], spills: [], fades: [], cuts: [] });
+});
+
+test('tileBlend: a higher surface spills onto a lower one, never the other way', () => {
+  const g = groundGrid(makeState(['_#', '..'], []));
+  assert.deepEqual(tileBlend(g, 0, 0).spills, [{ side: 'e', from: 'paving' }], 'grit on the stubble');
+  assert.deepEqual(tileBlend(g, 1, 0).spills, [], 'no straw on the paving');
+  assert.deepEqual(tileBlend(g, 0, 1).spills, [{ side: 'n', from: 'stubble' }]);
+  assert.deepEqual(tileBlend(g, 1, 1).spills, [{ side: 'n', from: 'paving' }]);
 });
 
 test('showGrid: the grid shows only during move or target selection', () => {

@@ -174,6 +174,11 @@ const ACTION_STEP = Object.freeze({
   build: null,
   mow: 'sweep',
   saw: 'sweep',
+  // The new bots' strikes: the lunge reaches a set length toward a target
+  // however far off it is (js/ui/motion.js), so a shot reads as one too.
+  shoot: 'lunge',
+  swing: 'lunge',
+  squeeze: 'lunge',
 });
 
 /** Step kinds that leave a band changed (for the reduced-motion fade). */

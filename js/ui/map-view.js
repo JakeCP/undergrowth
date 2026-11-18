@@ -15,21 +15,32 @@ import { el } from './svg.js';
 import { iconText } from './icons.js';
 import { MAP_ASSETS } from './map-assets.js';
 import {
-  buildMapLayout, labelBox, smoothPath, riverGlints, scrollFocusY, scrollTopFor, mapPlaces, mapStartPlace,
-  PLATE_H, MARKER_SIZE, PLACE_SIZE, LABEL_FONT, LABEL_PAD_X, POST_ID,
+  buildMapLayout, riverRibbon, riverGlints, scrollFocusY, scrollTopFor, mapPlaces, mapStartPlace,
+  PLATE_H, MARKER_SIZE, PLACE_SIZE, LABEL_FONT, POST_ID,
 } from './map-layout.js';
 import {
   mapKey, focusKind, keyHint, keyListBox, takeKeys, cameByKey, stepToward, focusOn, MAP_KEY_LIST,
 } from './keys.js';
 import {
-  defineGroundPatterns, FRAME, CREAM, INK, HAZARD, RUST, ANIMAL, ANIMAL_DARK, GRASS_LIGHT, MEADOW,
-  SOIL_LIGHT, SOIL_DARK, STUBBLE_LIGHT, WATER_LIGHT, DEN_GLOW,
+  defineGroundPatterns, FRAME, CREAM, INK, RUST, ANIMAL, ANIMAL_DARK, GRASS_LIGHT, MEADOW,
+  SOIL_LIGHT, SOIL_DARK, STUBBLE_LIGHT, DEN_GLOW,
 } from './patterns.js';
 
 /** SVG units per map unit: the column is 400 across, so the 40-unit ground patterns keep their grain. */
 const S = 4;
 /** A level's drawn disc, when there is no marker art, in map units. */
 const DISC_R = 5.5;
+/** The dark edge of the names and the frame's deepest green. */
+const FRAME_DEEP = '#0c1d12';
+/** The warm light under the chosen place, and the chosen name. */
+const SELECT_GLOW = '#ffd97a';
+/** The shadow where the river is cut into the land, and its wet earth. */
+const RIVER_SHADE = '#10220f';
+const RIVER_EARTH = '#4b3f27';
+/** The water: a muted teal that sits in the painted land, paler in the shallows. */
+const RIVER_WATER = '#4594a6';
+const RIVER_DEEP = '#2c6b86';
+const RIVER_SHALLOW = '#93cdd0';
 
 /**
  * Mist over a region not yet reached: puffs of the mist image, each
@@ -147,6 +158,13 @@ export function renderMap(root, opts) {
   el('stop', { offset: '0%', 'stop-color': DEN_GLOW, 'stop-opacity': 0.9 }, glow);
   el('stop', { offset: '60%', 'stop-color': DEN_GLOW, 'stop-opacity': 0.35 }, glow);
   el('stop', { offset: '100%', 'stop-color': DEN_GLOW, 'stop-opacity': 0 }, glow);
+  // The selection: a pool of warm light under the place, brightest in a
+  // soft rim. No drawn line.
+  const chosen = el('radialGradient', { id: 'map-chosen' }, defs);
+  el('stop', { offset: '0%', 'stop-color': SELECT_GLOW, 'stop-opacity': 0.5 }, chosen);
+  el('stop', { offset: '52%', 'stop-color': SELECT_GLOW, 'stop-opacity': 0.42 }, chosen);
+  el('stop', { offset: '74%', 'stop-color': SELECT_GLOW, 'stop-opacity': 0.8 }, chosen);
+  el('stop', { offset: '100%', 'stop-color': SELECT_GLOW, 'stop-opacity': 0 }, chosen);
 
   // A region without its plate gets the forest-floor pattern instead.
   for (const r of layout.regions) {
@@ -154,10 +172,23 @@ export function renderMap(root, opts) {
     el('rect', { x: 0, y: u(r.top), width: u(100), height: u(PLATE_H), fill: fills.forest, 'data-region': r.id }, svg);
   }
 
-  // The river, the length of the column, with a worn bank beside it.
-  const river = smoothPath(layout.river, S);
-  el('path', { d: river, stroke: fills.bank, 'stroke-width': u(5.4), fill: 'none', 'stroke-linecap': 'round', opacity: 0.9 }, svg);
-  el('path', { d: river, stroke: fills.water, 'stroke-width': u(3.6), fill: 'none', 'stroke-linecap': 'round' }, svg);
+  // The river, the length of the column: a band that swells and
+  // narrows as a brook does, cut a little into the land (a soft shadow,
+  // then wet earth at the water's edge), deep in the middle and paler
+  // in the shallows.
+  const water = el('linearGradient', { id: 'map-water', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
+  el('stop', { offset: '0%', 'stop-color': RIVER_WATER }, water);
+  el('stop', { offset: '100%', 'stop-color': RIVER_DEEP }, water);
+  const riverG = el('g', { class: 'map-river', 'data-river': 'true' }, svg);
+  /** @param {number} half @param {number} [phase] */
+  const band = (half, phase = 0) => riverRibbon(layout.river, S, half, { phase });
+  el('path', { d: band(3.1), fill: RIVER_SHADE, opacity: 0.16 }, riverG);
+  el('path', { d: band(2.6), fill: RIVER_SHADE, opacity: 0.22 }, riverG);
+  el('path', { d: band(2.2), fill: RIVER_EARTH, opacity: 0.85 }, riverG);
+  el('path', { d: band(1.85), fill: RIVER_SHALLOW, opacity: 0.8 }, riverG);
+  el('path', { d: band(1.55, 0.6), fill: 'url(#map-water)' }, riverG);
+  el('path', { d: band(1.55, 0.6), fill: fills.water, opacity: 0.35 }, riverG);
+  el('path', { d: band(0.7, 2.1), fill: RIVER_SHALLOW, opacity: 0.26 }, riverG);
   // Light on the water: soft glints scattered across it, each a blurred
   // oval fading in and out at its own pace (css/map.css), not a dashed
   // line down its middle.
@@ -192,8 +223,8 @@ export function renderMap(root, opts) {
     }
   }
 
-  /** @type {Array<{text: SVGElement, plate: SVGElement, at: {x: number, anchor: string}}>} */
-  const plates = [];
+  /** Each place's name, by place id, so the chosen one can be lit. @type {Map<string, SVGElement>} */
+  const nameOf = new Map();
 
   /**
    * A marker image in its square, centred on (x, y).
@@ -225,25 +256,27 @@ export function renderMap(root, opts) {
   }
 
   /**
-   * A name on a small cream plate, readable on any ground.
+   * A place's name, lettered on the map itself as on a drawn map: cream
+   * letters with a dark edge and a soft dark halo behind them, so they
+   * read on any ground without a plate.
    * @param {Element} parent
+   * @param {string} id the place's id
    * @param {string} text
    * @param {{x: number, y: number, anchor: 'start'|'middle'|'end'}} at
-   * @param {boolean} [lit]
    */
-  function label(parent, text, at, lit = false) {
-    const box = labelBox(text, at);
-    const g = el('g', { class: 'map-label' }, parent);
-    const plate = el('rect', {
-      x: u(box.x0), y: u(box.y0), width: u(box.x1 - box.x0), height: u(box.y1 - box.y0), rx: u(1.4),
-      fill: CREAM, 'fill-opacity': 0.92, stroke: lit ? HAZARD : INK, 'stroke-opacity': lit ? 1 : 0.35, 'stroke-width': lit ? 2.5 : 1.5,
-    }, g);
-    const tx = at.anchor === 'start' ? box.x0 + LABEL_PAD_X : at.anchor === 'end' ? box.x1 - LABEL_PAD_X : at.x;
-    const t = el('text', {
-      x: u(tx), y: u(at.y), 'text-anchor': at.anchor, 'font-size': u(LABEL_FONT), 'font-family': 'inherit', fill: INK,
-    }, g);
-    t.textContent = text;
-    plates.push({ text: t, plate, at });
+  function label(parent, id, text, at) {
+    const g = el('g', { class: 'map-label', 'data-label': id }, parent);
+    /** @type {Record<string, string|number>} */
+    const attrs = {
+      x: u(at.x), y: u(at.y), 'text-anchor': at.anchor, 'font-size': u(LABEL_FONT), 'font-family': 'inherit',
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+    };
+    el('text', { ...attrs, class: 'map-label__halo', fill: 'none', stroke: FRAME_DEEP, 'stroke-width': 11, opacity: 0.32 }, g)
+      .textContent = text;
+    el('text', {
+      ...attrs, class: 'map-label__name', fill: CREAM, stroke: FRAME_DEEP, 'stroke-width': 4.6, 'paint-order': 'stroke fill',
+    }, g).textContent = text;
+    nameOf.set(id, g);
   }
 
   // Home, where the path starts: decoration only.
@@ -256,12 +289,10 @@ export function renderMap(root, opts) {
     }
   }
 
-  // The selection's ring, under every place and name, so it never
-  // crosses a name's lettering.
+  // The selection's light, under every place and name.
   /** @type {SVGElement} */
-  const selRing = el('circle', {
-    r: u(MARKER_SIZE / 2 + 1.5), fill: 'none', stroke: HAZARD, 'stroke-width': 4,
-    'stroke-dasharray': '10 7', visibility: 'hidden', class: 'map-select',
+  const selGlow = el('circle', {
+    r: u(MARKER_SIZE * 0.72), fill: 'url(#map-chosen)', visibility: 'hidden', class: 'map-select',
   }, svg);
 
   // The trading post: its marker, or a drawn hut.
@@ -279,7 +310,7 @@ export function renderMap(root, opts) {
       el('path', { d: `M${hx - 24} ${hy - 2} L${hx} ${hy - 22} L${hx + 24} ${hy - 2} Z`, fill: RUST, stroke: INK, 'stroke-width': 2, 'stroke-linejoin': 'round' }, g);
       el('rect', { x: hx - 5, y: hy + 3, width: 10, height: 14, fill: SOIL_DARK }, g);
     }
-    label(g, 'Trading post', layout.post.label);
+    label(g, POST_ID, 'Trading post', layout.post.label);
   }
 
   // The levels that are open or cleared; a locked one is not shown at all.
@@ -287,10 +318,6 @@ export function renderMap(root, opts) {
     const g = el('g', { 'data-node': n.levelId, 'data-state': n.state }, svg);
     if (n.state === 'next') {
       el('circle', { cx: u(n.x), cy: u(n.y), r: u(MARKER_SIZE * 0.78), fill: 'url(#map-lit)', class: 'map-glow' }, g);
-      el('ellipse', {
-        cx: u(n.x), cy: u(n.y + MARKER_SIZE * 0.3), rx: u(MARKER_SIZE * 0.44), ry: u(MARKER_SIZE * 0.14),
-        fill: 'none', stroke: HAZARD, 'stroke-width': 3.5,
-      }, g);
     }
     const body = el('g', { class: n.state === 'next' ? 'map-marker map-marker--lit' : 'map-marker' }, g);
     if (n.marker.image !== null) {
@@ -308,7 +335,7 @@ export function renderMap(root, opts) {
       el('circle', { cx: u(bx), cy: u(by), r: u(MARKER_SIZE * 0.2), fill: CREAM, stroke: ANIMAL_DARK, 'stroke-width': 2, opacity: 0.95 }, g);
       image(g, MAP_ASSETS.markers[n.marker.badge], bx, by - MARKER_SIZE * 0.02, MARKER_SIZE * 0.36, n.marker.badge);
     }
-    label(g, n.label.text, n.label, n.state === 'next');
+    label(g, n.levelId, n.label.text, n.label);
   }
 
   // Mist over every region not yet reached: the mist image layered
@@ -397,14 +424,15 @@ export function renderMap(root, opts) {
   function select(id) {
     const place = id === null ? undefined : places.find((p) => p.id === id);
     selectedId = place === undefined ? null : place.id;
+    for (const [placeId, name] of nameOf) name.classList.toggle('map-label--chosen', placeId === selectedId);
     if (place === undefined) {
-      selRing.setAttribute('visibility', 'hidden');
+      selGlow.setAttribute('visibility', 'hidden');
     } else {
       // The trading post's picture is larger, with more room round it.
-      selRing.setAttribute('r', String(u(place.id === POST_ID ? PLACE_SIZE / 2 : MARKER_SIZE / 2 + 1.5)));
-      selRing.setAttribute('cx', String(u(place.x)));
-      selRing.setAttribute('cy', String(u(place.y)));
-      selRing.setAttribute('visibility', 'visible');
+      selGlow.setAttribute('r', String(u(place.id === POST_ID ? PLACE_SIZE * 0.72 : MARKER_SIZE * 0.72)));
+      selGlow.setAttribute('cx', String(u(place.x)));
+      selGlow.setAttribute('cy', String(u(place.y)));
+      selGlow.setAttribute('visibility', 'visible');
     }
     renderPanel();
     if (place !== undefined) keepInView(place.y);
@@ -455,31 +483,6 @@ export function renderMap(root, opts) {
   placeButtons.set(POST_ID, tapTarget(layout.post.x, layout.post.y, PLACE_SIZE, 'Trading post', () => go(opts.onShop)));
 
   renderPanel();
-
-  // Fit each name's plate to its lettering, now it can be measured,
-  // and again once the game's font has loaded.
-  fitPlates();
-  const fonts = /** @type {{fonts?: {ready?: Promise<unknown>}}} */ (/** @type {unknown} */ (document)).fonts;
-  fonts?.ready?.then(fitPlates, () => {});
-
-  function fitPlates() {
-    for (const p of plates) {
-      const t = /** @type {SVGTextContentElement} */ (/** @type {unknown} */ (p.text));
-      if (typeof t.getComputedTextLength !== 'function') continue;
-      let len = 0;
-      try {
-        len = t.getComputedTextLength();
-      } catch {
-        continue;
-      }
-      if (!(len > 0)) continue;
-      const w = len + 2 * u(LABEL_PAD_X);
-      const x = u(p.at.x);
-      const x0 = p.at.anchor === 'start' ? x : p.at.anchor === 'end' ? x - w : x - w / 2;
-      p.plate.setAttribute('x', String(round1(x0)));
-      p.plate.setAttribute('width', String(round1(w)));
-    }
-  }
 
   // Open on the level to play next.
   scrollToY(scrollFocusY(layout));

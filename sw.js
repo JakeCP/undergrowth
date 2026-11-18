@@ -17,7 +17,7 @@
 // The browser byte-diffs sw.js, installs the new worker, precaches
 // into the new cache name and — on activate — deletes every older
 // cache (skipWaiting + clients.claim: no waiting-worker prompt).
-const APP_VERSION = '58';
+const APP_VERSION = '73';
 const CACHE_NAME = `undergrowth-v${APP_VERSION}`;
 
 // Relative to the worker's scope ("./" = repo root on Pages).
@@ -57,6 +57,7 @@ const PRECACHE_URLS = [
   'js/engine/battle.js',
   'js/engine/bots.js',
   'js/engine/grid.js',
+  'js/engine/lanes.js',
   'js/engine/terrain.js',
   'js/engine/types.js',
   'js/engine/units.js',
@@ -96,6 +97,7 @@ const PRECACHE_URLS = [
   'js/ui/shop-scene.js',
   'js/ui/shop-view.js',
   'js/ui/silhouettes.js',
+  'js/ui/field-bake.js',
   'js/ui/sound.js',
   'js/ui/stakes.js',
   'js/ui/svg.js',
@@ -117,14 +119,6 @@ const PRECACHE_URLS = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
-  'assets/textures/bank.webp',
-  'assets/textures/grass.webp',
-  'assets/textures/meadow.webp',
-  'assets/textures/paving.webp',
-  'assets/textures/soil.webp',
-  'assets/textures/stone.webp',
-  'assets/textures/stubble.webp',
-  'assets/textures/water.webp',
   'assets/map/map-01-home-wood.webp',
   'assets/map/map-02-cut-valley.webp',
   'assets/map/markers/home-camp.webp',
@@ -251,6 +245,16 @@ const PRECACHE_URLS = [
   'assets/title/title-valley-regrown-tall.webp',
   'assets/title/title-valley-regrown-wide.webp',
   'assets/title/title-wordmark.webp',
+  'assets/textures/bank.webp',
+  'assets/textures/grass.webp',
+  'assets/textures/grass-clover.webp',
+  'assets/textures/grass-lush.webp',
+  'assets/textures/meadow.webp',
+  'assets/textures/paving.webp',
+  'assets/textures/soil.webp',
+  'assets/textures/stone.webp',
+  'assets/textures/stubble.webp',
+  'assets/textures/water.webp',
 ];
 
 self.addEventListener('install', (event) => {

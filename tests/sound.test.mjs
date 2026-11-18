@@ -25,6 +25,12 @@ test('attacks bite', () => {
   }
 });
 
+test('the new bots\' strikes: a shot or a squeeze bites, a crane\'s swing digs', () => {
+  assert.equal(soundForEvent(action('shoot')), 'bite');
+  assert.equal(soundForEvent(action('squeeze')), 'bite');
+  assert.equal(soundForEvent(action('swing')), 'dig');
+});
+
 test('digging digs, and mowing and sawing mow', () => {
   assert.equal(soundForEvent(action('dig')), 'dig');
   assert.equal(soundForEvent(action('mow')), 'mow');

@@ -828,8 +828,8 @@ function hasDamagedDen(state) {
   return state.tiles.some((row) => row.some((tile) => tile.kind === 'habitatDamaged'));
 }
 
-/** How many past messages the side panel keeps in view. */
-const LOG_LINES = 5;
+/** How many past messages the side panel keeps to scroll back through. */
+const LOG_LINES = 60;
 
 /**
  * @param {unknown} e
@@ -1466,7 +1466,9 @@ export function mountBattle(root, opts) {
 
   function renderLog() {
     logList.replaceChildren(
-      ...log.slice(-LOG_LINES).map((text) => html('li', 'battle-log__entry', text)),
+      // Newest first: the first line is the one a phone shows, and on a
+      // wider screen the list opens on it and scrolls back from there.
+      ...log.slice(-LOG_LINES).reverse().map((text) => html('li', 'battle-log__entry', text)),
     );
     noteLine.replaceChildren();
     // The card already says who is selected and what a bot plans.

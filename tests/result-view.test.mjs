@@ -34,11 +34,11 @@ function wonL01() {
  * Shows the result screen. Unless `arriving` is set, it is then let finish
  * its entrance with a tap, as a player would (the tap does nothing else).
  */
-function show(final, reward, { arriving = false, assets = undefined } = {}) {
+function show(final, reward, { arriving = false, assets = undefined, mapLabel = undefined } = {}) {
   const root = new FakeEl('div');
   const calls = [];
   const settled = renderResult(/** @type {any} */ (root), {
-    level: L01, final, reward, onMap: () => calls.push('map'), onReplay: () => calls.push('replay'), assets,
+    level: L01, final, reward, onMap: () => calls.push('map'), onReplay: () => calls.push('replay'), assets, mapLabel,
   });
   const screen = root.children[0];
   if (!arriving) screen.dispatch('click');
@@ -56,6 +56,16 @@ test('after a victory, Back to map comes first and is the main button; Play agai
   assert.ok(ui.classes(map).includes('ui-btn--primary'));
   assert.ok(!ui.classes(again).includes('ui-btn--primary'));
   assert.ok(ui.classes(again).includes('ui-btn--secondary'));
+});
+
+test('the map button says Back to map unless the caller names another way back', () => {
+  const { state, reward } = wonL01();
+  const starts = (ui, text) => ui.buttons.filter((b) => b.textContent.startsWith(text));
+  const plain = show(state, reward);
+  assert.equal(starts(plain, 'Back to map').length, 1);
+  const named = show(state, reward, { mapLabel: 'Back to the test ground' });
+  assert.equal(starts(named, 'Back to the test ground').length, 1);
+  assert.equal(starts(named, 'Back to map').length, 0);
 });
 
 test('after a victory, Back to map has the focus, so Enter goes to the map', () => {

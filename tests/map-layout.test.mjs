@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   nextLevelId, nodeStates, patches, pathDots, labelPlacement, buildMapLayout, TAP_MIN_PX,
   placeLabels, labelBox, placeBox, LABEL_CHAR_W, LABEL_PAD_X, LABEL_ASCENT, LABEL_DESCENT, NODE_CLEARANCE, DOT_RADIUS,
-  PLATE_H, REGION_OVERLAP, MARKER_SIZE, stackRegions, toColumn, revealedRegions, markerFor, riverPoints, riverGlints, smoothPath,
+  PLATE_H, REGION_OVERLAP, MARKER_SIZE, stackRegions, toColumn, revealedRegions, markerFor, riverPoints, riverGlints, riverRibbon, smoothPath,
   scrollFocusY, scrollTopFor, mapEdges,
 } from '../js/ui/map-layout.js';
 import { REGIONS, CAMPAIGN_NODES, TRADING_POST, HOME_CAMP } from '../data/campaign.js';
@@ -341,6 +341,31 @@ test('places are far enough apart for a thumb at 360 px wide', () => {
 // The audit: the river's shimmer was a dashed line down its middle, so it
 // read as a road with lane markings. Now it is soft glints scattered
 // across the water, irregular in place, length and rhythm.
+test('riverRibbon: a closed band along the river whose banks wander, the same every time', () => {
+  const course = [{ x: 10, y: 0 }, { x: 14, y: 30 }, { x: 8, y: 60 }, { x: 20, y: 90 }];
+  const d = riverRibbon(course, 4, 2);
+  assert.match(d, /^M[\d.-]+ [\d.-]+( Q[\d.-]+ [\d.-]+ [\d.-]+ [\d.-]+)+ Z$/, 'one closed curve');
+  assert.equal(riverRibbon(course, 4, 2), d);
+  assert.equal(riverRibbon([], 4, 2), '');
+  assert.equal(riverRibbon([{ x: 1, y: 1 }], 4, 2), '');
+  // Every point is near the course: within the half width and its
+  // wobble (a quarter and a bit), scaled. The course runs up the page,
+  // so at any height the band is to either side of it.
+  const xs = [...d.matchAll(/Q([\d.-]+) ([\d.-]+)/g)].map((m) => [Number(m[1]) / 4, Number(m[2]) / 4]);
+  assert.ok(xs.length > 40, 'drawn finely enough to be smooth');
+  for (const [x, y] of xs) {
+    assert.ok(x > 8 - 4 && x < 20 + 4, `x ${x} strays from the river`);
+    assert.ok(y > -4 && y < 94, `y ${y} strays from the river`);
+  }
+  // The width is not constant: a road's edges run parallel, a brook's do not.
+  const widths = new Set(xs.slice(0, 20).map(([x], i) => Math.round((xs[xs.length - 1 - i][0] - x) * 10)));
+  assert.ok(widths.size > 5, 'the band swells and narrows');
+  // A wider band holds a narrower one's place; another phase moves the swelling.
+  assert.notEqual(riverRibbon(course, 4, 3), d);
+  assert.notEqual(riverRibbon(course, 4, 2, { phase: 1 }), d);
+  assert.notEqual(riverRibbon(course, 4, 2, { wobble: 0 }), d);
+});
+
 test('riverGlints: scattered across the water, never evenly spaced or all down the middle, the same every visit', () => {
   const layout = build(prog(...ALL));
   const glints = riverGlints(layout.river);

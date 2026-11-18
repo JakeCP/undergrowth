@@ -14,6 +14,16 @@ const ram = {
   push: 1,
 };
 
+// The saw-drone's cut.
+/** @type {ActionDef} */
+const sawCut = { id: 'saw', label: 'Saw', effect: 'saw', damage: 2, minRange: 1, maxRange: 1, pattern: 'single', push: 0 };
+
+// The Hunter's cut: the saw's, with the same id (so it sounds and moves as
+// the saw), but deeper. Three takes a three-long band, or all but the head
+// of the ants, in one strike, so no lone band outlasts it in a plain fight.
+/** @type {ActionDef} */
+const hunterCut = { ...sawCut, damage: 3 };
+
 /** @type {Record<string, BandType>} */
 export const BAND_TYPES = {
   // The two the story is built around: every new game starts with them.
@@ -172,6 +182,7 @@ export const BAND_TYPES = {
     price: null,
     recruitBase: 0,
     reach: 3,
+    mind: 'harvester',
   },
   saw: {
     id: 'saw',
@@ -182,14 +193,13 @@ export const BAND_TYPES = {
     flies: false,
     startLen: 2,
     maxLenCap: 2,
-    actions: [
-      { id: 'saw', label: 'Saw', effect: 'saw', damage: 2, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
-    ],
+    actions: [sawCut],
     tiers: [{ minLen: 1, name: 'Saw-drone', grants: [] }],
     price: null,
     recruitBase: 0,
     reach: 4,
     alwaysEngaged: true,
+    mind: 'hunter',
   },
   planter: {
     id: 'planter',
@@ -207,6 +217,105 @@ export const BAND_TYPES = {
     price: null,
     recruitBase: 0,
     reach: 3,
+    mind: 'planter',
+  },
+  hunter: {
+    id: 'hunter',
+    name: 'Hunter',
+    side: 'bots',
+    glyph: '🛸',
+    speed: 4,
+    flies: false,
+    startLen: 4,
+    maxLenCap: 4,
+    actions: [hunterCut],
+    tiers: [{ minLen: 1, name: 'Hunter', grants: [] }],
+    price: null,
+    recruitBase: 0,
+    reach: 5,
+    alwaysEngaged: true,
+    mind: 'hunter',
+    regrows: false,
+  },
+  // It never moves; it shoots down any row or column it can see along (see lanes.js).
+  tower: {
+    id: 'tower',
+    name: 'Watchtower',
+    side: 'bots',
+    glyph: '🗼',
+    speed: 0,
+    flies: false,
+    startLen: 1,
+    maxLenCap: 1,
+    actions: [
+      { id: 'shoot', label: 'Shoot', effect: 'shot', damage: 2, minRange: 1, maxRange: 6, pattern: 'single', push: 0, dirs: 4 },
+    ],
+    tiers: [{ minLen: 1, name: 'Watchtower', grants: [] }],
+    price: null,
+    recruitBase: 0,
+    mind: 'sentry',
+    regrows: false,
+  },
+  beacon: {
+    id: 'beacon',
+    name: 'Beacon',
+    side: 'bots',
+    glyph: '🚨',
+    speed: 0,
+    flies: false,
+    startLen: 1,
+    maxLenCap: 1,
+    actions: [
+      { id: 'shoot', label: 'Shoot', effect: 'shot', damage: 2, minRange: 1, maxRange: 3, pattern: 'single', push: 0, dirs: 8 },
+    ],
+    tiers: [{ minLen: 1, name: 'Beacon', grants: [] }],
+    price: null,
+    recruitBase: 0,
+    mind: 'sentry',
+    regrows: false,
+  },
+  // Slow, and it strikes only exactly two tiles off along a row or column,
+  // so it keeps that distance rather than walking up beside a band.
+  crane: {
+    id: 'crane',
+    name: 'Crane',
+    side: 'bots',
+    glyph: '🏗️',
+    speed: 1,
+    flies: false,
+    startLen: 3,
+    maxLenCap: 3,
+    actions: [
+      { id: 'swing', label: 'Swing', effect: 'shot', damage: 3, minRange: 2, maxRange: 2, pattern: 'single', push: 0, dirs: 4 },
+    ],
+    tiers: [{ minLen: 1, name: 'Crane', grants: [] }],
+    price: null,
+    recruitBase: 0,
+    mind: 'stalker',
+    regrows: false,
+  },
+  // Long and fast, and its squeeze takes two: enough to wipe a fox or a
+  // hedgehog at its starting size. A level wraps it round what it guards,
+  // setting its length by listing its cells; it lies still until a band
+  // comes in reach.
+  coil: {
+    id: 'coil',
+    name: 'Coil',
+    side: 'bots',
+    glyph: '⛓️',
+    speed: 4,
+    flies: false,
+    startLen: 9,
+    maxLenCap: 16,
+    actions: [
+      { id: 'squeeze', label: 'Squeeze', effect: 'crush', damage: 2, minRange: 1, maxRange: 1, pattern: 'single', push: 0 },
+    ],
+    tiers: [{ minLen: 1, name: 'Coil', grants: [] }],
+    price: null,
+    recruitBase: 0,
+    reach: 5,
+    mind: 'coil',
+    regrows: false,
   },
 };
 

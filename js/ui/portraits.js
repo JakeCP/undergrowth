@@ -323,7 +323,9 @@ export function speakerSpec(who, mood, present = PORTRAIT_LIST) {
 export const HEAD_CROPS = Object.freeze({
   fox: { x: 0.44, y: 0.46, size: 0.54 },
   hedgehog: { x: 0.35, y: 0.45, size: 0.58 },
-  ants: { x: 0.43, y: 0.37, size: 0.42 },
+  // The face, with the roots of the antennae: centred on the antennae
+  // (as measured) the face sat low in the window, its jaws cut off.
+  ants: { x: 0.485, y: 0.45, size: 0.46 },
   badger: { x: 0.42, y: 0.36, size: 0.5 },
   beaver: { x: 0.40, y: 0.34, size: 0.5 },
   bear: { x: 0.45, y: 0.36, size: 0.5 },
