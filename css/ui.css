@@ -309,6 +309,36 @@ html.has-kit-panel-wood .ui-panel--wood {
   filter: drop-shadow(0 6px 10px rgba(12, 29, 18, 0.5));
 }
 
+/* --- the new-version notice (js/ui/update-notice.js) --- */
+
+/* A wooden strip across the top of whatever screen is showing, over
+   everything, clear of the phone's notch. */
+.update-notice {
+  --edge: 18px;
+  position: fixed;
+  z-index: 100;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 24px), 440px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 12px 20px;
+}
+
+.update-notice__text {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.update-notice__btn {
+  flex: none;
+}
+
 /* --- ribbons --- */
 
 /* A cloth banner; the words sit on its flat middle, which is a little

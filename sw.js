@@ -17,7 +17,7 @@
 // The browser byte-diffs sw.js, installs the new worker, precaches
 // into the new cache name and — on activate — deletes every older
 // cache (skipWaiting + clients.claim: no waiting-worker prompt).
-const APP_VERSION = '78';
+const APP_VERSION = '80';
 const CACHE_NAME = `undergrowth-v${APP_VERSION}`;
 
 // Relative to the worker's scope ("./" = repo root on Pages).
@@ -114,6 +114,7 @@ const PRECACHE_URLS = [
   'js/ui/ui-assets.js',
   'js/ui/ui-kit.js',
   'js/ui/unit-card.js',
+  'js/ui/update-notice.js',
   'js/ui/unit-info.js',
   'manifest.webmanifest',
   'favicon.svg',

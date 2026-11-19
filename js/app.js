@@ -24,6 +24,7 @@ import { SCENES } from '../data/story/index.js';
 import { playScene } from './ui/scene-view.js';
 import { watchInput, takeKeys } from './ui/keys.js';
 import { applyKit, PRESSABLE } from './ui/ui-kit.js';
+import { watchForUpdates } from './ui/update-notice.js';
 
 // The painted interface kit: every button, panel and banner is drawn
 // from its painted piece where one exists (css/ui.css).
@@ -367,4 +368,4 @@ const openingLab = labModeFor(location.hash);
 if (openingLab !== null) showLab(openingLab);
 else showTitle();
 
-try { navigator.serviceWorker?.register('sw.js')?.catch(() => {}); } catch {}
+try { watchForUpdates(); } catch {}

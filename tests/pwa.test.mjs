@@ -211,8 +211,10 @@ test('precache-hash.txt matches the precached file contents', () => {
   );
 });
 
-test('js/app.js registers sw.js with a relative path', () => {
+test('js/app.js registers sw.js with a relative path (through js/ui/update-notice.js)', () => {
   const app = read('js/app.js');
-  assert.match(app, /navigator\.serviceWorker\??\.register\('sw\.js'\)/);
-  assert.doesNotMatch(app, /serviceWorker\??\.register\('\//, 'never from the domain root');
+  assert.match(app, /watchForUpdates\(\)/);
+  const notice = read('js/ui/update-notice.js');
+  assert.match(notice, /\.register\(deps\.url \?\? 'sw\.js'\)/);
+  for (const src of [app, notice]) assert.doesNotMatch(src, /register\([^)]*'\//, 'never from the domain root');
 });
